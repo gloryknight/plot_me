@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.21"
+version="2.22"
 
 #Classes: fig->data->line, my_function
 
@@ -15,6 +15,7 @@ except:
 	pass
 import pylab
 import sys
+import zipfile
 
 class config:
 
@@ -83,14 +84,23 @@ class config:
 #~ '' 	nothing
 #~ ACCEPTS: [ '+' | '*' | ',' | '.' | '1' | '2' | '3' | '4'| '<' | '>' | 'D' | 'H' | '^' | '_' | 'd' | 'h' | 'o' | 'p' | 's' | 'v' | 'x' | '|' | TICKUP | TICKDOWN | TICKLEFT | TICKRIGHT | 'None' | ' ' | '' ]
 
+class zip: # load zip (can be used directly or from figure by loadzip)
+	def __init__(self, zipname):
+		self.zipname=zipname
+		self.ffile = zipfile.ZipFile( zipname, "r" )
 
-class my_function: #Pseudo-Voigt
+	def read( self, filename ):
+		self.filename=filename
+		d=self.ffile.read(filename)
+		return d
 
-	def residuals(self, p, x, y): 
+class my_function: #Pseudo-Voigt (is used for fit)
+
+	def residuals(self, p, x, y): # find deviation (must be present)
 		err = y-self.peval(x,p)
 		return err
 
-	def peval(self, x, p):
+	def peval(self, x, p): # evaluate the function (must be present)
 		if p[2]<0:
 			p[2]=0
 		elif p[2]>1:
@@ -104,7 +114,7 @@ class my_function: #Pseudo-Voigt
 	def gaussian(self, x, p):
 		return (numpy.exp(-numpy.log(2)*((x-p[3])/p[4])**2))
 
-class data:
+class data: # class holding the data (is used if you need to plot multiple columns of the sama data file)
 
 	def __init__(self, ax, lw):
 		self.ax=ax
@@ -115,7 +125,7 @@ class data:
 		return self.data
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
 
-	def add(self, data):
+	def add(self, data): # add data to 
 		self.data=numpy.array(data)
 		return self
 
@@ -164,7 +174,7 @@ class data:
 				line+=1
 		return numpy.array(f1)
 
-	def fit(self, range=[0,0], x_col=0, y_col=1, p0=None, maximumfittingcycles=20000, function=None):
+	def fit(self, range=[0,0], x_col=0, y_col=1, p0=None, maximumfittingcycles=20000, function=None): # fit the data
 		if range==[0,0]:
 			data=self.data
 		else:
@@ -189,12 +199,12 @@ class data:
 		self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_col], data[:,y_col]), maxfev=maximumfittingcycles)[0]
 		return self.fitfunc
 
-	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, **kwargs):
+	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, **kwargs): # plot the data
 		if scale==0:
 			scale=1/self.data[:,y_col].max()
 		return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, marker, self.lw, label, scale, **kwargs)
 
-	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs):
+	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs): # draw the data (pass parameters to the plot directrly)
 		l, = self.ax.plot(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
 		return l
 
@@ -256,13 +266,41 @@ class fig:
 			line.set_markersize(config.markersize)
 			line.set_markeredgewidth(config.markeredgewidth)
 
-	def data(self): # Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale
+	def data(self): # returns a data object
 		return data(self.ax, self.lw)
 
-	def load(self, filename):
+	def load(self, filename): # Loads data from the file into a new data object
 		d=data(self.ax, self.lw)
 		d.load(filename)
 		return d
+
+	def loadzip(self, zipname, filename): # Loads data from the file in a zip file returns new data object
+		do=data(self.ax, self.lw)
+		z=zip(zipname)
+		dd=z.read(filename)
+		datas=[]
+		n=1
+		for line in dd.split("\n"):
+			if line <> "" and line[0]!="#":
+				line=line.replace(",",".")
+				dat=[]
+				good=True
+				l=line.split()
+				if len(l)<1:
+					good=False
+				for d in l:
+					try:
+						fd=float(d)
+						dat.append(float(d))
+					except:
+						good=False
+				if good:
+					datas.append(dat)
+				else:
+					print config.whongdata+str(n)
+			n+=1
+		do.add(datas)
+		return do
 
 	def legend(self, *args, **kwargs): # Adds a legend. Use loc. 1 to 10 to change location
 		leg=plt.legend(*args, **kwargs)
@@ -270,24 +308,24 @@ class fig:
 			t.set_fontsize(self.fonts) # the legend text fontsize
 
 
-	def axis(self):
+	def axis(self): # set axis limits
 		if self.lx!=None:
 			self.ax.set_xlim(self.lx[0],self.lx[1])
 		if self.ly!=None:
 			self.ax.set_ylim(self.ly[0],self.ly[1])
 
-	def show(self):
+	def show(self): # show the plot
 		self.axis()
 		plt.show()
 
-	def save(self, filename):
+	def save(self, filename): # save plot to file
 		self.axis()
 		plt.savefig(filename, dpi = (config.dpi))
 
-	def label(self, x, y, text, dir=0, **kwargs):
+	def label(self, x, y, text, dir=0, **kwargs): # add a label
 		self.ax.text(x,y, text, rotation=dir, size=self.fonts, **kwargs) #, color='red'
 
-	def plot(self, *args, **kwargs):
+	def plot(self, *args, **kwargs): # plot the data
 		data(self.ax, self.lw).draw(*args, **kwargs)
 
 class fig2d:
@@ -315,7 +353,15 @@ class fig2d:
 		for t in self.cb.ax.get_yticklabels():
 			t.set_fontsize(self.fonts)
 
-	def plot(self):
+	def add(self, data):  # add data to the plot (must be a three dimensional numpy array)
+		self.data=data
+		return self
+
+	def plotdata(self, data): # plot the data
+		self.add(data)
+		self.plot()
+
+	def plot(self): # plot the figure
 		fig = plt.figure()
 		self.ax = fig.add_subplot(111)
 #		self.ax = plt.axes()
@@ -323,13 +369,13 @@ class fig2d:
 		l = pylab.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=congif.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=1)
 		self.plotsetup()
 
-	def show(self):
+	def show(self): # show the figure
 		plt.show()
 
-	def save(self, filename):
+	def save(self, filename): # save the figure
 		plt.savefig(filename)
 
-	def label(self, x, y, text, dir=0):
+	def label(self, x, y, text, dir=0): # add a label
 		self.ax.text(x,y, text, rotation=dir, size=self.fonts) #, color='red'
 
 if __name__ == "__main__":
