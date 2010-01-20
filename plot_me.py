@@ -11,7 +11,7 @@ import numpy
 try:
 	from scipy.optimize import leastsq
 except:
-#	print "no scipy"
+#	print("no scipy")
 	pass
 import pylab
 import sys
@@ -183,7 +183,7 @@ class data: # class holding the data (is used if you need to plot multiple colum
 			range=[data[0,x_col],data[data[:,x_col].size-1,x_col]]
 		if p0==None:
 			self.p0_orig=[1.18643310e+02, 3.96555414e+02, 4.77081488e-06, 1.96415331e+01, 8.80491880e-02]
-			#print numpy.argmax(data[:,y_col]), numpy.size(data)
+			#print(numpy.argmax(data[:,y_col]), numpy.size(data))
 			n=numpy.argmax(data[:,y_col])
 			self.p0_orig[0]=data[0,y_col] # background			
 			self.p0_orig[1]=data[n,y_col] # intensity
@@ -233,10 +233,9 @@ class data: # class holding the data (is used if you need to plot multiple colum
 				if good:
 					data.append(dat)
 				else:
-					print config.whongdata+str(n)
+					print(config.whongdata+str(n))
 			n+=1
 		fr.close()
-		#print data
 		return numpy.array(data)
 
 class fig:
@@ -297,7 +296,7 @@ class fig:
 				if good:
 					datas.append(dat)
 				else:
-					print config.whongdata+str(n)
+					print(config.whongdata+str(n))
 			n+=1
 		do.add(datas)
 		return do
@@ -366,8 +365,12 @@ class fig2d:
 		self.ax = fig.add_subplot(111)
 #		self.ax = plt.axes()
 
-		l = pylab.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=congif.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=1)
+		if self.lz!=None:
+			l = plt.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=1)
+		else:
+			l = plt.imshow(self.data,cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=1)
 		self.plotsetup()
+		return self
 
 	def show(self): # show the figure
 		plt.show()
@@ -379,12 +382,8 @@ class fig2d:
 		self.ax.text(x,y, text, rotation=dir, size=self.fonts) #, color='red'
 
 if __name__ == "__main__":
-
-	try:
-		import psyco
-		psyco.full()
-	except:
-		print "no psyco"
+	
+	# do not use psyco - (returns an error!)
 
 	if len(sys.argv)==2:
 		i=fig()
@@ -399,15 +398,28 @@ if __name__ == "__main__":
 		i.load(sys.argv[1]).plot(sys.argv[2], sys.argv[3])
 		i.show()
 	else:
-		print "Usage: plot_me filename x_collumn y_collumn x_label y_label" # eg. plot_me test.txt 0 1 time intensity
+		print("Usage: plot_me filename x_collumn y_collumn x_label y_label") # eg. plot_me test.txt 0 1 time intensity
 
-#	print "done"
 
 #--- examples:
+
 #	i=fig(r"$2\theta$ (degrees)", "Intensity [arb. units]", xlimit=[27,80], ylimit=[0.165,1])
 #	i.load("9104682_grad_02_0001a.sfrm.Q-int.dat").plot(0, 1, "first","",0)
+
 #	d=i.data()
 #	dw=d.load("9104682_grad_02_0001a.sfrm.Q-int.dat")
+
 #	line=d.add(d.smooth(dw,2)).plot(0, 1, "second","",0)
+
 #	d.add(dw).plot(0, 1, "second","",line.scale)
 
+#	d=i.loadzip("CIGS-gradient1_00003.TIF_th10-62.zip", name).plot(0, 1, "a","",0)
+#	i.save(name+".eps")
+#	i.show()
+
+	#~ import numpy
+	#~ from plot_me import fig2d
+	#~ from numpy.random import randn
+	#~ Z = numpy.clip(randn(250, 250), -1, 1)
+	#~ i=fig2d("x [pixel]","y[pixel]" ,"Intensity [arb. units]", zlimit=(0,10))
+	#~ i.add(Z).plot().show()
