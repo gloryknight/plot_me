@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.22"
+version="2.23"
 
 #Classes: fig->data->line, my_function
 
@@ -126,7 +126,7 @@ class data: # class holding the data (is used if you need to plot multiple colum
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
 
 	def add(self, data): # add data to 
-		self.data=numpy.array(data)
+		self.data=numpy.array(data, dtype='float')
 		return self
 
 	def averageme(self, every): # running average
@@ -135,7 +135,7 @@ class data: # class holding the data (is used if you need to plot multiple colum
 			s=0
 			for i in range(0,n):
 				s+=self.data[i]
-			self.data[n]=s/(n)
+			self.data[n]=s/n
 		for n in range(0, size-every):
 			s=0
 			for i in range(0,every):
