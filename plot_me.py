@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.23"
+version="2.24"
 
 #Classes: fig->data->line, my_function
 
@@ -122,8 +122,19 @@ class data: # class holding the data (is used if you need to plot multiple colum
 
 	def load(self, filename): # Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale
 		self.data=self.read(filename)
-		return self.data
+		return self
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
+
+	def load_slow(self, filename): # Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale
+		self.data=self.read_slow(filename)
+		return self
+
+	def loadzip(self, zipname, filename): # Loads data from the file in a zip file returns new data object
+		z=zip(zipname)
+		dd=z.read(filename)
+		data=self.work_read(dd.split("\n"))
+		self.add(data)
+		return self
 
 	def add(self, data): # add data to 
 		self.data=numpy.array(data, dtype='float')
@@ -172,23 +183,23 @@ class data: # class holding the data (is used if you need to plot multiple colum
 				line=0
 			else:
 				line+=1
-		return numpy.array(f1)
+		return numpy.array(f1, dtype='float')
 
-	def fit(self, range=[0,0], x_col=0, y_col=1, p0=None, maximumfittingcycles=20000, function=None): # fit the data
+	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None): # fit the data
 		if range==[0,0]:
 			data=self.data
 		else:
-			data=self.data[(self.data[:,x_col]>range[0]) & (self.data[:,x_col]<range[1]),:]
+			data=self.data[(self.data[:,x_y_col[0]]>range[0]) & (self.data[:,x_y_col[0]]<range[1]),:]
 		if range==[0,0]:
-			range=[data[0,x_col],data[data[:,x_col].size-1,x_col]]
+			range=[data[0,x_y_col[0]],data[data[:,x_y_col[0]].size-1,x_y_col[0]]]
 		if p0==None:
 			self.p0_orig=[1.18643310e+02, 3.96555414e+02, 4.77081488e-06, 1.96415331e+01, 8.80491880e-02]
 			#print(numpy.argmax(data[:,y_col]), numpy.size(data))
-			n=numpy.argmax(data[:,y_col])
-			self.p0_orig[0]=data[0,y_col] # background			
-			self.p0_orig[1]=data[n,y_col] # intensity
+			n=numpy.argmax(data[:,x_y_col[1]])
+			self.p0_orig[0]=data[0,x_y_col[1]] # background			
+			self.p0_orig[1]=data[n,x_y_col[1]] # intensity
 			self.p0_orig[2]=0.5 # ratio			
-			self.p0_orig[3]=data[n,x_col] # position
+			self.p0_orig[3]=data[n,x_y_col[0]] # position
 			self.p0_orig[4]=(range[1]-range[0])/3. # FWHM			
 		else:
 			self.p0_orig=p0
@@ -196,8 +207,12 @@ class data: # class holding the data (is used if you need to plot multiple colum
 			self.fitfunc=my_function()
 		else:
 			self.fitfunc=function
-		self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_col], data[:,y_col]), maxfev=maximumfittingcycles)[0]
+		self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), maxfev=maximumfittingcycles)[0]
 		return self.fitfunc
+
+	def plotfit(self):
+		self.data1[:,1]=self.fitfunc.peval(self.data[:,0],self.p0)
+		self.plot(0, 1, "fit","")
 
 	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, **kwargs): # plot the data
 		if scale==0:
@@ -214,10 +229,15 @@ class data: # class holding the data (is used if you need to plot multiple colum
 	def read_slow(self, filename): # Loads data from the file into a new array
 		self.filename=filename
 		fr=open(filename,'r')
+		data=self.work_read(fr)
+		fr.close()
+		return numpy.array(data, dtype='float')
+
+	def work_read(self, fr): # helper function for read_slow
 		data=[]
 		n=1
 		for line in fr:
-			if line <> "\n" and line[0]!="#":
+			if line <> "" and line <> "\n" and line[0]!="#":
 				line=line.replace(",",".")
 				dat=[]
 				good=True
@@ -235,8 +255,7 @@ class data: # class holding the data (is used if you need to plot multiple colum
 				else:
 					print(config.whongdata+str(n))
 			n+=1
-		fr.close()
-		return numpy.array(data)
+		return data
 
 class fig:
 
@@ -270,42 +289,16 @@ class fig:
 
 	def load(self, filename): # Loads data from the file into a new data object
 		d=data(self.ax, self.lw)
-		d.load(filename)
-		return d
+		return d.load(filename)
 
 	def loadzip(self, zipname, filename): # Loads data from the file in a zip file returns new data object
 		do=data(self.ax, self.lw)
-		z=zip(zipname)
-		dd=z.read(filename)
-		datas=[]
-		n=1
-		for line in dd.split("\n"):
-			if line <> "" and line[0]!="#":
-				line=line.replace(",",".")
-				dat=[]
-				good=True
-				l=line.split()
-				if len(l)<1:
-					good=False
-				for d in l:
-					try:
-						fd=float(d)
-						dat.append(float(d))
-					except:
-						good=False
-				if good:
-					datas.append(dat)
-				else:
-					print(config.whongdata+str(n))
-			n+=1
-		do.add(datas)
-		return do
+		return do.loadzip(zipname, filename)
 
 	def legend(self, *args, **kwargs): # Adds a legend. Use loc. 1 to 10 to change location
 		leg=plt.legend(*args, **kwargs)
 		for t in leg.get_texts():
 			t.set_fontsize(self.fonts) # the legend text fontsize
-
 
 	def axis(self): # set axis limits
 		if self.lx!=None:
