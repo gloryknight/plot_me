@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.24"
+version="2.25"
 
 #Classes: fig->data->line, my_function
 
@@ -18,6 +18,10 @@ import sys
 import zipfile
 
 class config:
+	'''
+	configuration class for the script
+	'''
+
 
 #	figsize=(8,6) # size of the figure
 #	adjust_bottom=0.11
@@ -85,22 +89,46 @@ class config:
 #~ ACCEPTS: [ '+' | '*' | ',' | '.' | '1' | '2' | '3' | '4'| '<' | '>' | 'D' | 'H' | '^' | '_' | 'd' | 'h' | 'o' | 'p' | 's' | 'v' | 'x' | '|' | TICKUP | TICKDOWN | TICKLEFT | TICKRIGHT | 'None' | ' ' | '' ]
 
 class zip: # load zip (can be used directly or from figure by loadzip)
-	def __init__(self, zipname):
+	'''
+	work with zip archives
+	'''
+	def __init__(self, zipname, mode="r"):
 		self.zipname=zipname
-		self.ffile = zipfile.ZipFile( zipname, "r" )
+		self.ffile = zipfile.ZipFile( zipname, mode, zipfile.ZIP_DEFLATED)
+		self.fname=self.zipname+".txt"
 
 	def read( self, filename ):
+		''' read zip file with filename and return it's content '''
 		self.filename=filename
 		d=self.ffile.read(filename)
 		return d
 
-class my_function: #Pseudo-Voigt (is used for fit)
+	def writestr(self, str, fname=None):
+		''' write string to a file fname in the zip archive and close the file.'''
+		if fname==None:
+			fname=self.fname
+		else:
+			self.fname=fname
+		self.ffile.writestr(fname, str)
 
-	def residuals(self, p, x, y): # find deviation (must be present)
+	def close(self):
+		''' close the file. '''
+		self.ffile.close()
+
+	def __del__(self):
+		''' destructor '''
+		self.close()
+
+class my_function: 
+	''' Pseudo-Voigt function used for fitting. Needed as a prototype. '''
+
+	def residuals(self, p, x, y):
+		''' find deviation (must be present) '''
 		err = y-self.peval(x,p)
 		return err
 
-	def peval(self, x, p): # evaluate the function (must be present)
+	def peval(self, x, p): 
+		''' evaluate the function (must be present and should be modified according to needs)'''
 		if p[2]<0:
 			p[2]=0
 		elif p[2]>1:
@@ -114,33 +142,39 @@ class my_function: #Pseudo-Voigt (is used for fit)
 	def gaussian(self, x, p):
 		return (numpy.exp(-numpy.log(2)*((x-p[3])/p[4])**2))
 
-class data: # class holding the data (is used if you need to plot multiple columns of the sama data file)
+class data: 
+	''' class holding the data (is used if you need to plot multiple columns of the sama data file) '''
 
 	def __init__(self, ax, lw):
 		self.ax=ax
 		self.lw=lw
 
-	def load(self, filename): # Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale
+	def load(self, filename): 
+		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
 		self.data=self.read(filename)
 		return self
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
 
-	def load_slow(self, filename): # Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale
+	def load_slow(self, filename): 
+		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
 		self.data=self.read_slow(filename)
 		return self
 
-	def loadzip(self, zipname, filename): # Loads data from the file in a zip file returns new data object
+	def loadzip(self, zipname, filename): 
+		''' Loads data from the file in a zip file returns new data object '''
 		z=zip(zipname)
 		dd=z.read(filename)
 		data=self.work_read(dd.split("\n"))
 		self.add(data)
 		return self
 
-	def add(self, data): # add data to 
+	def add(self, data): 
+		''' add data to the class '''
 		self.data=numpy.array(data, dtype='float')
 		return self
 
-	def averageme(self, every): # running average
+	def averageme(self, every): 
+		''' running average of the data in this class (modyfies the data) '''
 		size=numpy.shape(self.data)[0]
 		for n in range(1, every):
 			s=0
@@ -159,11 +193,13 @@ class data: # class holding the data (is used if you need to plot multiple colum
 			self.data[n]=s/(size-n)
 		return self
 
-	def smoothme(self, every): # average simplify data (reduce ammount of points
+	def smoothme(self, every): 
+		''' average simplify data on the data of the class (reduce ammount of points) '''
 		self.data=self.smooth(self.data, every)
 		return self
 
-	def smooth(self, data, every): # average simplify data (reduce ammount of points
+	def smooth(self, data, every): 
+		''' average simplify data (reduce ammount of points) '''
 		line=0
 		f1=[]
 		s=[]
@@ -185,7 +221,8 @@ class data: # class holding the data (is used if you need to plot multiple colum
 				line+=1
 		return numpy.array(f1, dtype='float')
 
-	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None): # fit the data
+	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None): 
+		''' fit the data with function (returns the set of parameters) '''
 		if range==[0,0]:
 			data=self.data
 		else:
@@ -208,36 +245,47 @@ class data: # class holding the data (is used if you need to plot multiple colum
 		else:
 			self.fitfunc=function
 		self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), maxfev=maximumfittingcycles)[0]
-		return self.fitfunc
+		return self.p0
 
-	def plotfit(self):
-		self.data1[:,1]=self.fitfunc.peval(self.data[:,0],self.p0)
-		self.plot(0, 1, "fit","")
+	def plotfit(self, name="fit", x_y_col=[0, 1], **kwargs):
+		''' plot the result of fitting '''
+		data1=self.data.copy()
+		data1[:,x_y_col[1]]=self.fitfunc.peval(data1[:,x_y_col[0]],self.p0)
+		#y=self.fitfunc.peval(self.data[:,x],self.p0)
+		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
 
-	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, **kwargs): # plot the data
+	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, **kwargs):
+		''' plot the data '''
+		if data==None:
+			data=self.data
 		if scale==0:
 			scale=1/self.data[:,y_col].max()
-		return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, marker, self.lw, label, scale, **kwargs)
+		return self.draw(data[:,x_col], data[:,y_col]*scale, marker, self.lw, label, scale, **kwargs)
 
-	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs): # draw the data (pass parameters to the plot directrly)
+	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs):
+		''' draw the data (pass parameters to the plot directrly)'''
 		l, = self.ax.plot(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
 		return l
 
-	def read(self, filename): # Loads data from the file into a new array
+	def read(self, filename):
+		''' Loads data from the file into a new array '''
 		return numpy.loadtxt(filename)
 
-	def read_slow(self, filename): # Loads data from the file into a new array
+	def read_slow(self, filename):
+		''' Loads data from the file into a new array - slow but error prune '''
 		self.filename=filename
 		fr=open(filename,'r')
 		data=self.work_read(fr)
 		fr.close()
 		return numpy.array(data, dtype='float')
 
-	def work_read(self, fr): # helper function for read_slow
+	def work_read(self, fr):
+		''' helper function for read_slow'''
 		data=[]
 		n=1
+		first=True
 		for line in fr:
-			if line <> "" and line <> "\n" and line[0]!="#":
+			if line != "" and line != "\n" and line[0]!="#":
 				line=line.replace(",",".")
 				dat=[]
 				good=True
@@ -251,6 +299,13 @@ class data: # class holding the data (is used if you need to plot multiple colum
 					except:
 						good=False
 				if good:
+					if first:
+						datlen=len(dat)
+						first=False
+					else:
+						if datlen!=len(dat):
+							good=False
+				if good:
 					data.append(dat)
 				else:
 					print(config.whongdata+str(n))
@@ -258,8 +313,10 @@ class data: # class holding the data (is used if you need to plot multiple colum
 		return data
 
 class fig:
+	''' 2D figure and operations on it. '''
 
-	def __init__(self, xt=config.x_label, yt=config.y_label, xlimit=None, ylimit=None, lw=config.linewidth, fonts=config.fonts): # Initialize new canvas and load new data (file name, x axis label, y axis label)
+	def __init__(self, xt=config.x_label, yt=config.y_label, xlimit=None, ylimit=None, lw=config.linewidth, fonts=config.fonts): 
+		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
 		self.lx=xlimit # x range eg. [0,1]
@@ -268,7 +325,8 @@ class fig:
 		self.fonts=fonts # font size
 		self.plotsetup()
 
-	def plotsetup(self): # finalize the plot
+	def plotsetup(self):
+		''' finalize the plot setup '''
 		self.fig = plt.figure(figsize=config.figsize)
 		self.ax = self.fig.add_subplot(111)
 		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
@@ -284,44 +342,55 @@ class fig:
 			line.set_markersize(config.markersize)
 			line.set_markeredgewidth(config.markeredgewidth)
 
-	def data(self): # returns a data object
+	def data(self):
+		''' returns a data object '''
 		return data(self.ax, self.lw)
 
-	def load(self, filename): # Loads data from the file into a new data object
+	def load(self, filename):
+		''' Loads data from the file into a new data object '''
 		d=data(self.ax, self.lw)
 		return d.load(filename)
 
-	def loadzip(self, zipname, filename): # Loads data from the file in a zip file returns new data object
+	def loadzip(self, zipname, filename):
+		''' Loads data from the file in a zip file returns new data object '''
 		do=data(self.ax, self.lw)
 		return do.loadzip(zipname, filename)
 
-	def legend(self, *args, **kwargs): # Adds a legend. Use loc. 1 to 10 to change location
+	def legend(self, *args, **kwargs):
+		''' Adds a legend. Use loc. 1 to 10 to change location '''
 		leg=plt.legend(*args, **kwargs)
 		for t in leg.get_texts():
 			t.set_fontsize(self.fonts) # the legend text fontsize
 
-	def axis(self): # set axis limits
+	def axis(self):
+		''' set axis limits '''
 		if self.lx!=None:
 			self.ax.set_xlim(self.lx[0],self.lx[1])
 		if self.ly!=None:
 			self.ax.set_ylim(self.ly[0],self.ly[1])
 
-	def show(self): # show the plot
+	def show(self):
+		''' show the plot '''
 		self.axis()
 		plt.show()
 
-	def save(self, filename): # save plot to file
+	def save(self, filename):
+		''' save the plot to a file '''
 		self.axis()
 		plt.savefig(filename, dpi = (config.dpi))
 
-	def label(self, x, y, text, dir=0, **kwargs): # add a label
+	def label(self, x, y, text, dir=0, **kwargs):
+		''' add a label to the plot '''
 		self.ax.text(x,y, text, rotation=dir, size=self.fonts, **kwargs) #, color='red'
 
-	def plot(self, *args, **kwargs): # plot the data
+	def plot(self, *args, **kwargs):
+		''' plot the data '''
 		data(self.ax, self.lw).draw(*args, **kwargs)
 
 class fig2d:
-	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts): # Initialize new canvas and load new data (file name, x axis label, y axis label)
+	''' 2D+color figure and operations on it. '''
+	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts): 
+		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
 		self.cbt=cbt # y title
@@ -331,7 +400,8 @@ class fig2d:
 		self.lw=linewidth # line width
 		self.fonts=fonts # font size
 	
-	def plotsetup(self): # finalize the plot
+	def plotsetup(self):
+		''' finalize the plot setup '''
 		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
 		self.cb = plt.colorbar(format=pylab.FormatStrFormatter(config.colorformat)) # draw colorbar
@@ -345,15 +415,18 @@ class fig2d:
 		for t in self.cb.ax.get_yticklabels():
 			t.set_fontsize(self.fonts)
 
-	def add(self, data):  # add data to the plot (must be a three dimensional numpy array)
+	def add(self, data):
+		''' add data to the plot (must be a three dimensional numpy array) '''
 		self.data=data
 		return self
 
-	def plotdata(self, data): # plot the data
+	def plotdata(self, data):
+		''' plot the data '''
 		self.add(data)
 		self.plot()
 
-	def plot(self): # plot the figure
+	def plot(self):
+		''' plot the figure '''
 		fig = plt.figure()
 		self.ax = fig.add_subplot(111)
 #		self.ax = plt.axes()
@@ -365,13 +438,16 @@ class fig2d:
 		self.plotsetup()
 		return self
 
-	def show(self): # show the figure
+	def show(self):
+		''' show the figure '''
 		plt.show()
 
-	def save(self, filename): # save the figure
+	def save(self, filename):
+		''' save the figure '''
 		plt.savefig(filename)
 
-	def label(self, x, y, text, dir=0): # add a label
+	def label(self, x, y, text, dir=0):
+		''' add a label '''
 		self.ax.text(x,y, text, rotation=dir, size=self.fonts) #, color='red'
 
 if __name__ == "__main__":
