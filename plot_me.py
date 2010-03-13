@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.25"
+version="2.26"
 
 #Classes: fig->data->line, my_function
 
@@ -39,7 +39,8 @@ class config:
 	adjust_top=0.97
 	x_label="X" # defauld x label
 	y_label="Y" # defauld y label
-	colorformat='$10^{%d}$' # format of the color scale
+#	colorformat='$10^{%d}$' # format of the color scale
+	colorformat='%d' # format of the color scale
 	cmap=pylab.cm.jet # default colormap of the 2d plot
 	interpolation2d='nearest' # 2d interpolation
 	origin2d='lower'
@@ -389,7 +390,7 @@ class fig:
 
 class fig2d:
 	''' 2D+color figure and operations on it. '''
-	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts): 
+	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat): 
 		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
@@ -399,12 +400,13 @@ class fig2d:
 		self.lz=zlimit # y range eg. [0,1]
 		self.lw=linewidth # line width
 		self.fonts=fonts # font size
+		self.colorformat=colorformat
 	
 	def plotsetup(self):
 		''' finalize the plot setup '''
 		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
-		self.cb = plt.colorbar(format=pylab.FormatStrFormatter(config.colorformat)) # draw colorbar
+		self.cb = plt.colorbar(format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
 		self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
 		#fig.subplots_adjust(left=0.11, bottom=0.11, right=0.96, top=0.96, wspace=None, hspace=None)
 
