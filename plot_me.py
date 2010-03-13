@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.26"
+version="2.27"
 
 #Classes: fig->data->line, my_function
 
@@ -388,6 +388,9 @@ class fig:
 		''' plot the data '''
 		data(self.ax, self.lw).draw(*args, **kwargs)
 
+	def close(self):
+		plt.close()
+
 class fig2d:
 	''' 2D+color figure and operations on it. '''
 	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat): 
@@ -451,6 +454,9 @@ class fig2d:
 	def label(self, x, y, text, dir=0):
 		''' add a label '''
 		self.ax.text(x,y, text, rotation=dir, size=self.fonts) #, color='red'
+
+	def close(self):
+		plt.close()
 
 if __name__ == "__main__":
 	
