@@ -434,6 +434,7 @@ class fig2d:
 		''' plot the figure '''
 		fig = plt.figure()
 		self.ax = fig.add_subplot(111)
+		self.ax.hold()
 #		self.ax = plt.axes()
 
 		if self.lz!=None:
