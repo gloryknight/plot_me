@@ -1,18 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.27"
+version="2.28"
 
 #Classes: fig->data->line, my_function
 
 #import numpy as np
 import matplotlib.pyplot as plt
 import numpy
-try:
-	from scipy.optimize import leastsq
-except:
-#	print("no scipy")
-	pass
 import pylab
 import sys
 import zipfile
@@ -26,6 +21,7 @@ class config:
 #	figsize=(8,6) # size of the figure
 #	adjust_bottom=0.11
 	figsize=(8,5) # size of the figure
+	figsize2d=(7,5) # size of the figure
 	fonts=20
 	dpi=200 #None
 	axis_width=2 # axis line width
@@ -120,28 +116,38 @@ class zip: # load zip (can be used directly or from figure by loadzip)
 		''' destructor '''
 		self.close()
 
-class my_function: 
-	''' Pseudo-Voigt function used for fitting. Needed as a prototype. '''
-
-	def residuals(self, p, x, y):
-		''' find deviation (must be present) '''
-		err = y-self.peval(x,p)
-		return err
-
-	def peval(self, x, p): 
-		''' evaluate the function (must be present and should be modified according to needs)'''
-		if p[2]<0:
-			p[2]=0
-		elif p[2]>1:
-			p[2]=1
-		return (p[0]+p[1]*(abs(p[2])*self.lagr(x,p)+(1-p[2])*self.gaussian(x,p)))
-#		return (p[0]+(p[1] * numpy.exp(-((x-p[2])**2)/(2*(p[3]**2)))))
-
-	def lagr(self, x, p):
-		return (1/(1+(((x-p[3])/p[4])**2)))
+class fit: 
+	''' class of functions used for fitting. Needed as a prototype. '''
+	
+	class Line: #line
+		''' Line function used for fitting. Needed as a prototype. '''
 		
-	def gaussian(self, x, p):
-		return (numpy.exp(-numpy.log(2)*((x-p[3])/p[4])**2))
+		def peval(self, x, p): # evaluate the function (must be present)
+			''' evaluate the function (must be present and should be modified according to needs)'''
+			return (p[0]+(p[1]*x))
+
+		def residuals(self, p, x, y):
+			''' find deviation (must be present) '''
+			err = y-self.peval(x,p)
+			return err
+
+	class Pseudo_Voigt(Line): 
+		''' Pseudo-Voigt function used for fitting. '''
+
+		def peval(self, x, p): 
+			return (p[0]+p[1]*(abs(p[2])*self.lagr(x,p)+(1-p[2])*self.gaussian(x,p)))
+
+		def lagr(self, x, p):
+			return (1/(1+(((x-p[3])/p[4])**2)))
+			
+		def gaussian(self, x, p):
+			return (numpy.exp(-numpy.log(2)*((x-p[3])/p[4])**2))
+
+	class Gaussian(Line): 
+		''' Gaussian function used for fitting. '''
+
+		def peval(self, x, p): 
+			return (numpy.exp(-numpy.log(2)*((x-p[0])/p[1])**2))
 
 class data: 
 	''' class holding the data (is used if you need to plot multiple columns of the sama data file) '''
@@ -149,6 +155,7 @@ class data:
 	def __init__(self, ax, lw):
 		self.ax=ax
 		self.lw=lw
+		self.data=None
 
 	def load(self, filename): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
@@ -156,17 +163,26 @@ class data:
 		return self
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
 
-	def load_slow(self, filename): 
+	def summ(self, a, b):
+		return numpy.vstack((a,b)) 
+
+	def load_slow(self, filename, scan_nr=None): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
-		self.data=self.read_slow(filename)
+		if (scan_nr==None) or (self.data==None):
+			self.data=self.read_slow(filename, scan_nr)
+		else:
+			self.data=numpy.vstack((self.data, self.read_slow(filename, scan_nr)))
 		return self
 
-	def loadzip(self, zipname, filename): 
+	def loadzip(self, zipname, filename, scan_nr=None): 
 		''' Loads data from the file in a zip file returns new data object '''
 		z=zip(zipname)
 		dd=z.read(filename)
-		data=self.work_read(dd.split("\n"))
-		self.add(data)
+		data=self.work_read(dd.split("\n"), scan_nr)
+		if (scan_nr==None) or (self.data==None):
+			self.add(data)
+		else:
+			self.data=numpy.vstack((self.data, data))
 		return self
 
 	def add(self, data): 
@@ -223,6 +239,10 @@ class data:
 		return numpy.array(f1, dtype='float')
 
 	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None): 
+		try:
+			from scipy.optimize import leastsq
+		except:
+			print("no scipy")
 		''' fit the data with function (returns the set of parameters) '''
 		if range==[0,0]:
 			data=self.data
@@ -242,7 +262,7 @@ class data:
 		else:
 			self.p0_orig=p0
 		if function==None:
-			self.fitfunc=my_function()
+			self.fitfunc=Pseudo_Voigt()
 		else:
 			self.fitfunc=function
 		self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), maxfev=maximumfittingcycles)[0]
@@ -272,15 +292,15 @@ class data:
 		''' Loads data from the file into a new array '''
 		return numpy.loadtxt(filename)
 
-	def read_slow(self, filename):
+	def read_slow(self, filename, scan_nr=None):
 		''' Loads data from the file into a new array - slow but error prune '''
 		self.filename=filename
 		fr=open(filename,'r')
-		data=self.work_read(fr)
+		data=self.work_read(fr, scan_nr)
 		fr.close()
 		return numpy.array(data, dtype='float')
 
-	def work_read(self, fr):
+	def work_read(self, fr, scan_nr=None):
 		''' helper function for read_slow'''
 		data=[]
 		n=1
@@ -307,6 +327,9 @@ class data:
 						if datlen!=len(dat):
 							good=False
 				if good:
+					if scan_nr!=None:
+						dat.append(float(scan_nr))
+					#print dat
 					data.append(dat)
 				else:
 					print(config.whongdata+str(n))
@@ -352,10 +375,10 @@ class fig:
 		d=data(self.ax, self.lw)
 		return d.load(filename)
 
-	def loadzip(self, zipname, filename):
+	def loadzip(self, zipname, filename, scan_nr=None):
 		''' Loads data from the file in a zip file returns new data object '''
 		do=data(self.ax, self.lw)
-		return do.loadzip(zipname, filename)
+		return do.loadzip(zipname, filename, scan_nr)
 
 	def legend(self, *args, **kwargs):
 		''' Adds a legend. Use loc. 1 to 10 to change location '''
@@ -393,7 +416,7 @@ class fig:
 
 class fig2d:
 	''' 2D+color figure and operations on it. '''
-	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat): 
+	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat, aspect=1, extent=None): 
 		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
@@ -404,6 +427,8 @@ class fig2d:
 		self.lw=linewidth # line width
 		self.fonts=fonts # font size
 		self.colorformat=colorformat
+		self.aspect=aspect
+		self.extent=extent
 	
 	def plotsetup(self):
 		''' finalize the plot setup '''
@@ -411,7 +436,7 @@ class fig2d:
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
 		self.cb = plt.colorbar(format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
 		self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
-		#fig.subplots_adjust(left=0.11, bottom=0.11, right=0.96, top=0.96, wspace=None, hspace=None)
+		self.fig.subplots_adjust(left=0.13, bottom=0.13, right=0.76, top=0.96, wspace=None, hspace=None)
 
 		for label in self.ax.get_xticklabels() + self.ax.get_yticklabels():
 			label.set_fontsize(self.fonts) 
@@ -432,15 +457,15 @@ class fig2d:
 
 	def plot(self):
 		''' plot the figure '''
-		fig = plt.figure()
-		self.ax = fig.add_subplot(111)
+		self.fig = plt.figure(figsize=config.figsize2d)
+		self.ax = self.fig.add_subplot(111)
 		self.ax.hold()
 #		self.ax = plt.axes()
 
 		if self.lz!=None:
-			l = plt.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=1)
+			l = plt.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 		else:
-			l = plt.imshow(self.data,cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=1)
+			l = plt.imshow(self.data,cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 		self.plotsetup()
 		return self
 
