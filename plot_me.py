@@ -147,7 +147,7 @@ class fit:
 		''' Gaussian function used for fitting. '''
 
 		def peval(self, x, p): 
-			return (numpy.exp(-numpy.log(2)*((x-p[0])/p[1])**2))
+			return p[0]+p[1]*numpy.exp(-0.5*((x-p[2])/p[3])**2)
 
 class data: 
 	''' class holding the data (is used if you need to plot multiple columns of the sama data file) '''
