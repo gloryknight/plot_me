@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.28"
+version="2.29"
 
 #Classes: fig->data->line, my_function
 
@@ -156,6 +156,7 @@ class data:
 		self.ax=ax
 		self.lw=lw
 		self.data=None
+		self.z=None
 
 	def load(self, filename): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
@@ -176,8 +177,10 @@ class data:
 
 	def loadzip(self, zipname, filename, scan_nr=None): 
 		''' Loads data from the file in a zip file returns new data object '''
-		z=zip(zipname)
-		dd=z.read(filename)
+		if ((self.z==None) or (self.z.zipname!=zipname)):
+			del self.z
+			self.z=zip(zipname)
+		dd=self.z.read(filename)
 		data=self.work_read(dd.split("\n"), scan_nr)
 		if (scan_nr==None) or (self.data==None):
 			self.add(data)
@@ -473,9 +476,9 @@ class fig2d:
 		''' show the figure '''
 		plt.show()
 
-	def save(self, filename):
+	def save(self, *args, **kwargs):
 		''' save the figure '''
-		plt.savefig(filename)
+		plt.savefig( *args, **kwargs)
 
 	def label(self, x, y, text, dir=0):
 		''' add a label '''
