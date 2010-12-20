@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.29"
+version="2.31"
 
 #Classes: fig->data->line, my_function
 
@@ -193,7 +193,18 @@ class data:
 		self.data=numpy.array(data, dtype='float')
 		return self
 
-	def averageme(self, every): 
+	def fftsmoothme(self, lowpass=10): 
+		''' FFT frequency cut makes the data smooth (modyfies the data) '''
+		gauss=fit.Gaussian().peval
+		fft=numpy.fft.fft(self.data[:,1])
+		fftl=len(fft)
+		for i in range(1, fftl):
+			fft[i]=fft[i]*(gauss(i, [0, 1, 0, lowpass])+gauss(i, [0, 1, fftl, lowpass]))
+		gauss=None
+		self.data[:,1]=numpy.fft.ifft(fft).real
+		return self
+
+	def smoothme(self, every): 
 		''' running average of the data in this class (modyfies the data) '''
 		size=numpy.shape(self.data)[0]
 		for n in range(1, every):
@@ -213,13 +224,13 @@ class data:
 			self.data[n]=s/(size-n)
 		return self
 
-	def smoothme(self, every): 
-		''' average simplify data on the data of the class (reduce ammount of points) '''
-		self.data=self.smooth(self.data, every)
+	def averageme(self, every): 
+		''' average simplify data on the data of the class (reduces ammount of points) '''
+		self.data=self.average(self.data, every)
 		return self
 
-	def smooth(self, data, every): 
-		''' average simplify data (reduce ammount of points) '''
+	def average(self, data, every): 
+		''' average simplify data (reduces ammount of points) '''
 		line=0
 		f1=[]
 		s=[]
@@ -439,7 +450,7 @@ class fig2d:
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
 		self.cb = plt.colorbar(format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
 		self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
-		self.fig.subplots_adjust(left=0.13, bottom=0.13, right=0.76, top=0.96, wspace=None, hspace=None)
+		self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right-0.2, top=config.adjust_top, wspace=None, hspace=None)
 
 		for label in self.ax.get_xticklabels() + self.ax.get_yticklabels():
 			label.set_fontsize(self.fonts) 
@@ -470,6 +481,7 @@ class fig2d:
 		else:
 			l = plt.imshow(self.data,cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 		self.plotsetup()
+#		self.ax.set_xticks(xtricks)
 		return self
 
 	def show(self):
