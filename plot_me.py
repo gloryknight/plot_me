@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.31"
+version="2.32"
 
 #Classes: fig->data->line, my_function
 
@@ -300,6 +300,13 @@ class data:
 	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs):
 		''' draw the data (pass parameters to the plot directrly)'''
 		l, = self.ax.plot(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
+		return l
+
+	def draw1d(self, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs):
+		''' draw 1D data (pass parameters to the plot directrly)'''
+		y=numpy.array(y)
+		x=numpy.arange(0, numpy.size(y))
+		l = self.draw(x, y, marker, lw, l, scale, **kwargs)
 		return l
 
 	def read(self, filename):
