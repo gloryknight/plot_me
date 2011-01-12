@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.32"
+version="2.33"
 
 #Classes: fig->data->line, my_function
 
 #import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.mlab import griddata
 import numpy
 import pylab
 import sys
@@ -469,6 +470,15 @@ class fig2d:
 	def add(self, data):
 		''' add data to the plot (must be a three dimensional numpy array) '''
 		self.data=data
+		return self
+
+	def addgrid(self, dqx, dqy, di, xpix=1500, ypix=1000):
+		dqx=numpy.array(dqx)
+		dqy=numpy.array(dqy)
+		di=numpy.array(di)
+		xi = numpy.linspace(dqx.min(),dqx.max(),xpix)
+		yi = numpy.linspace(dqy.min(),dqy.max(),ypix)
+		self.data=griddata(dqx,dqy,di,xi,yi)
 		return self
 
 	def plotdata(self, data):

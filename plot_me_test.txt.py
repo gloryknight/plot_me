@@ -2,11 +2,17 @@ import plot_me # works with version 2.22 (print plot_me.version)
 
 import numpy
 from numpy.random import randn
+# random 2D
 Z = numpy.clip(randn(250, 250), -1, 1)
 i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", zlimit=(0,10), colorformat="%d", extent=[0, 100, 0, 100])
 i.add(Z).plot()
-#.show()
 
+# 2D from arbitrary data (convert to grid first)
+i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", colorformat="%d")
+i.addgrid([10,20,30,40],[10,20,25,10],[15,11,12,10], xpix=150, ypix=100).plot()
+#i.show()
+
+# Variour 1D plots with loading the data form txt and zip
 i=plot_me.fig("Time (seconds)", "Power (arb. units)") #, ylimit=[30,180])
 d=i.data().load_slow("plot_me_test.txt")
 i.load("plot_me_test.txt").plot(0, 1, "load","", 1)
@@ -20,6 +26,7 @@ i.loadzip("plot_me_test.txt.zip","plot_me_test.txt").averageme(10).plot(0, 1, "a
 #i.legend()
 #i.save("1.png")
 
+# Fitting 1D data
 class line(plot_me.fit.Line): #line
 	def peval(self, x, p): # evaluate the function (must be present)
 		return (p[0]+(p[1]*x))
@@ -30,7 +37,16 @@ try:
 	d.plotfit("fit") # plot the fit
 except:
 	pass
+
+# Drawind warious data
+d=i.data()
+d.draw([5, 7, 2], [80, 84, 85], l="draw")
+d.draw1d([81, 83, 85], l="draw1d")
+
 i.legend() # add the legend
+
+#i.close()
+#i=plot_me.fig("Time (seconds)", "Power (arb. units)") #, ylimit=[30,180])
 
 #i.save(name1+".png")
 #i.save(name1+".pdf")
