@@ -41,7 +41,7 @@ except:
 # Drawind warious data
 d=i.data()
 d.draw([5, 7, 2], [80, 84, 85], l="draw")
-d.draw1d([81, 83, 85], l="draw1d")
+d.add1d([81, 83, 85]).plot(0,1, "add1d")
 
 i.legend() # add the legend
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.33"
+version="2.34"
 
 #Classes: fig->data->line, my_function
 
@@ -194,6 +194,15 @@ class data:
 		self.data=numpy.array(data, dtype='float')
 		return self
 
+	def add1d(self, data, xrange=[0,0]): 
+		''' add data to the class '''
+		data=numpy.array(data, dtype='float')
+		rng=numpy.arange(0,data.shape[0])
+		if xrange!=[0,0]:
+			rng=xrange[0]+(rng*(xrange[1]-xrange[0])/float(data.shape[0]-1))
+		self.data=numpy.column_stack((rng, data))
+		return self
+
 	def fftsmoothme(self, lowpass=10): 
 		''' FFT frequency cut makes the data smooth (modyfies the data) '''
 		gauss=fit.Gaussian().peval
@@ -301,13 +310,6 @@ class data:
 	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs):
 		''' draw the data (pass parameters to the plot directrly)'''
 		l, = self.ax.plot(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
-		return l
-
-	def draw1d(self, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs):
-		''' draw 1D data (pass parameters to the plot directrly)'''
-		y=numpy.array(y)
-		x=numpy.arange(0, numpy.size(y))
-		l = self.draw(x, y, marker, lw, l, scale, **kwargs)
 		return l
 
 	def read(self, filename):
