@@ -87,7 +87,8 @@ class config:
 #~ ACCEPTS: [ '+' | '*' | ',' | '.' | '1' | '2' | '3' | '4'| '<' | '>' | 'D' | 'H' | '^' | '_' | 'd' | 'h' | 'o' | 'p' | 's' | 'v' | 'x' | '|' | TICKUP | TICKDOWN | TICKLEFT | TICKRIGHT | 'None' | ' ' | '' ]
 
 def say(what):
-	print what
+	#print what
+	pass
 
 class zip: # load zip (can be used directly or from figure by loadzip)
 	'''
