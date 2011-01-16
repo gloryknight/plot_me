@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.34"
+version="2.35"
 
 #Classes: fig->data->line, my_function
 
@@ -85,6 +85,9 @@ class config:
 #~ ' ' 	nothing
 #~ '' 	nothing
 #~ ACCEPTS: [ '+' | '*' | ',' | '.' | '1' | '2' | '3' | '4'| '<' | '>' | 'D' | 'H' | '^' | '_' | 'd' | 'h' | 'o' | 'p' | 's' | 'v' | 'x' | '|' | TICKUP | TICKDOWN | TICKLEFT | TICKRIGHT | 'None' | ' ' | '' ]
+
+def say(what):
+	print what
 
 class zip: # load zip (can be used directly or from figure by loadzip)
 	'''
@@ -299,17 +302,27 @@ class data:
 		#y=self.fitfunc.peval(self.data[:,x],self.p0)
 		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
 
-	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, **kwargs):
+	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, **kwargs):
 		''' plot the data '''
 		if data==None:
 			data=self.data
 		if scale==0:
 			scale=1/self.data[:,y_col].max()
-		return self.draw(data[:,x_col], data[:,y_col]*scale, marker, self.lw, label, scale, **kwargs)
+		if log==1:
+			plotf=self.ax.semilogy
+		elif log==2:
+			plotf=self.ax.semilogx
+		elif log==3:
+			plotf=self.ax.loglog
+		else:
+			plotf=self.ax.plot
+		return self.draw(data[:,x_col], data[:,y_col]*scale, marker, self.lw, label, scale, plotf=plotf, **kwargs)
 
-	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, **kwargs):
+	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, plotf=None, **kwargs):
 		''' draw the data (pass parameters to the plot directrly)'''
-		l, = self.ax.plot(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
+		if plotf==None:
+			plotf=self.ax.plot
+		l, = plotf(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
 		return l
 
 	def read(self, filename):
@@ -356,7 +369,7 @@ class data:
 					#print dat
 					data.append(dat)
 				else:
-					print(config.whongdata+str(n))
+					say(config.whongdata+str(n))
 			n+=1
 		return data
 
