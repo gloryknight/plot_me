@@ -33,7 +33,7 @@ class line(plot_me.fit.Line): #line
 
 d=i.loadzip("plot_me_test.txt.zip","plot_me_test.txt")
 try:
-	print (d.fit(p0=[1, 1], range=[0,0], x_y_col=[0,1], function=line())) # print the parameters
+	print (d.fit(p0=[1, 1], range=[0,0], x_y_col=[0,1], function=plot_me.fit.Line())) # print the parameters
 	d.plotfit("fit") # plot the fit
 except:
 	pass

@@ -267,11 +267,11 @@ class data:
 		return numpy.array(f1, dtype='float')
 
 	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None): 
+		''' fit the data with function (returns the set of parameters) '''
 		try:
 			from scipy.optimize import leastsq
 		except:
 			print("no scipy")
-		''' fit the data with function (returns the set of parameters) '''
 		if range==[0,0]:
 			data=self.data
 		else:
@@ -302,6 +302,10 @@ class data:
 		data1[:,x_y_col[1]]=self.fitfunc.peval(data1[:,x_y_col[0]],self.p0)
 		#y=self.fitfunc.peval(self.data[:,x],self.p0)
 		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
+
+	def getfiterr(self):
+		''' returns mean square error per measurements point '''
+		return ((self.data[:,1]-fit.Gaussian().peval(self.data[:,0], self.p0))**2).sum()/float(self.data.shape[0])
 
 	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, **kwargs):
 		''' plot the data '''
@@ -489,6 +493,7 @@ class fig2d:
 		return self
 
 	def addgrid(self, dqx, dqy, di, xpix=1500, ypix=1000):
+		''' add irregular data to 2D plot and makes a grid in linear space '''
 		dqx=numpy.array(dqx)
 		dqy=numpy.array(dqy)
 		di=numpy.array(di)
