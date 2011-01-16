@@ -33,15 +33,16 @@ class line(plot_me.fit.Line): #line
 
 d=i.loadzip("plot_me_test.txt.zip","plot_me_test.txt")
 try:
-	print (d.fit(p0=[1, 1], range=[0,0], x_y_col=[0,1], function=plot_me.fit.Line())) # print the parameters
+	print "parameters:", (d.fit(p0=[1, 1], range=[0,0], x_y_col=[0,1], function=plot_me.fit.Line())) # print the parameters
 	d.plotfit("fit") # plot the fit
+	print "error:", d.getfiterr()
 except:
 	pass
 
 # Drawind warious data
 d=i.data()
-d.add1d([81, 83, 85]).plot(0,1, "add1d", log=0)
-d.draw([5, 7, 2], [80, 84, 85], l="draw")
+d.add1d([81, 83, 87], xrange=[10, 15]).plot(0,1, "add1d", log=0)
+d.draw([5, 8, 9, 6, 5], [80, 81, 85, 84, 80], l="draw")
 
 i.legend() # add the legend
 

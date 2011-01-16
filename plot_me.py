@@ -303,9 +303,9 @@ class data:
 		#y=self.fitfunc.peval(self.data[:,x],self.p0)
 		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
 
-	def getfiterr(self):
+	def getfiterr(self, x_y_col=[0, 1]):
 		''' returns mean square error per measurements point '''
-		return ((self.data[:,1]-fit.Gaussian().peval(self.data[:,0], self.p0))**2).sum()/float(self.data.shape[0])
+		return (self.fitfunc.residuals(self.p0, self.data[:,x_y_col[0]], self.data[:,x_y_col[1]])**2).sum()/float(self.data.shape[0])
 
 	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, **kwargs):
 		''' plot the data '''
