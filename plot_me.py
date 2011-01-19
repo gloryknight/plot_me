@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.35"
+version="2.36"
 
 #Classes: fig->data->line, my_function
 
@@ -205,6 +205,13 @@ class data:
 		if xrange!=[0,0]:
 			rng=xrange[0]+(rng*(xrange[1]-xrange[0])/float(data.shape[0]-1))
 		self.data=numpy.column_stack((rng, data))
+		return self
+
+	def th2q(self, Energy=10.5):
+		''' converts x coordinates from angular to q space (powder diffraction) '''
+		lambd=12.3984428/float(Energy)
+		pi4=4*numpy.pi
+		self.data[:, 0]=pi4*numpy.sin(numpy.radians(self.data[:, 0]/2.))/lambd
 		return self
 
 	def fftsmoothme(self, lowpass=10): 
