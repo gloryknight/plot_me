@@ -42,6 +42,7 @@ class config:
 	interpolation2d='nearest' # 2d interpolation
 	origin2d='lower'
 	whongdata="Wrong data in line: " # info message for wrong input data
+	bbox_inches='tight'
 
 
 #~ linestyle 	description
@@ -450,7 +451,7 @@ class fig:
 	def save(self, filename):
 		''' save the plot to a file '''
 		self.axis()
-		plt.savefig(filename, dpi = (config.dpi))
+		plt.savefig(filename, bbox_inches=config.bbox_inches, dpi = (config.dpi))
 
 	def label(self, x, y, text, dir=0, **kwargs):
 		''' add a label to the plot '''
@@ -535,7 +536,7 @@ class fig2d:
 
 	def save(self, *args, **kwargs):
 		''' save the figure '''
-		plt.savefig( *args, **kwargs)
+		plt.savefig( *args, bbox_inches=config.bbox_inches, **kwargs)
 
 	def label(self, x, y, text, dir=0):
 		''' add a label '''

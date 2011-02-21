@@ -1,10 +1,14 @@
-import plot_me # works with version 2.22 (print plot_me.version)
+import plot_me # works with version 2.36 (print plot_me.version)
+#import pylab
+#plot_me.config.cmap=pylab.cm.hot
+
 
 import numpy
 from numpy.random import randn
 # random 2D
 Z = numpy.clip(randn(250, 250), -1, 1)
 i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", zlimit=(0,10), colorformat="%d", extent=[0, 100, 0, 100])
+#i.colorformat='$10^{%d}$'
 i.add(Z).plot()
 
 # 2D from arbitrary data (convert to grid first)
