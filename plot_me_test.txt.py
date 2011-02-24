@@ -7,12 +7,13 @@ import numpy
 from numpy.random import randn
 # random 2D
 Z = numpy.clip(randn(250, 250), -1, 1)
-i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", zlimit=(0,10), colorformat="%d", extent=[0, 100, 0, 100])
+i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", zlimit=(0,10), colorformat="%g", extent=[0, 100, 0, 100])
 #i.colorformat='$10^{%d}$'
 i.add(Z).plot()
+#i.save("test1.png")
 
 # 2D from arbitrary data (convert to grid first)
-i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", colorformat="%d")
+i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", colorformat="%g")
 i.addgrid([10,20,30,40],[10,20,25,10],[15,11,12,10], xpix=150, ypix=100).plot()
 #i.show()
 

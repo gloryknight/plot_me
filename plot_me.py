@@ -37,7 +37,8 @@ class config:
 	x_label="X" # defauld x label
 	y_label="Y" # defauld y label
 #	colorformat='$10^{%d}$' # format of the color scale
-	colorformat='%d' # format of the color scale
+#	colorformat='%s' # format of the color scale
+	colorformat='%g' # format of the color scale
 	cmap=pylab.cm.jet # default colormap of the 2d plot
 	interpolation2d='nearest' # 2d interpolation
 	origin2d='lower'
@@ -298,7 +299,7 @@ class data:
 		else:
 			self.p0_orig=p0
 		if function==None:
-			self.fitfunc=Pseudo_Voigt()
+			self.fitfunc=fit.Pseudo_Voigt()
 		else:
 			self.fitfunc=function
 		self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), maxfev=maximumfittingcycles)[0]
@@ -399,10 +400,31 @@ class fig:
 		self.fonts=fonts # font size
 		self.plotsetup()
 
+	def onscroll(self, event):
+		''' Allow zoom/unzoom with the mouse wheel '''
+		x = event.xdata
+		y = event.ydata
+		xx1, xx2=self.ax.get_xlim()
+		yy1, yy2=self.ax.get_ylim()
+		if event.button=='up':
+			xx1=xx1+(x-xx1)*0.1
+			xx2=xx2+(x-xx2)*0.1
+			yy1=yy1+(y-yy1)*0.1
+			yy2=yy2+(y-yy2)*0.1
+		else:
+			xx1=xx1-(x-xx1)*0.1
+			xx2=xx2-(x-xx2)*0.1
+			yy1=yy1-(y-yy1)*0.1
+			yy2=yy2-(y-yy2)*0.1
+		self.ax.set_xlim(xx1,xx2)
+		self.ax.set_ylim(yy1,yy2)
+		self.fig.canvas.draw()
+
 	def plotsetup(self):
 		''' finalize the plot setup '''
 		self.fig = plt.figure(figsize=config.figsize)
 		self.ax = self.fig.add_subplot(111)
+		self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
 		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
 		self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right, top=config.adjust_top, wspace=None, hspace=None)
@@ -464,6 +486,35 @@ class fig:
 	def close(self):
 		plt.close()
 
+	def findupdate(self, val):
+		pr=[]
+		for lpn in self.pp:
+			pr.append(lpn.val)
+		self.plott.set_ydata(self.fitfunc.peval(self.xlist, pr))
+		self.fig.canvas.draw()
+		pass
+
+	def findpar(self, p0=None, function=None, p0range=None, x=None):
+		''' find a function behaviour and proper parameters (returns the set of parameters) '''
+		if p0==None:
+			p0=[1.18643310e+02, 3.96555414e+02, 4.77081488e-06, 1.96415331e+01, 8.80491880e-02]
+		if function==None:
+			self.fitfunc=fit.Pseudo_Voigt()
+		else:
+			self.fitfunc=function
+		if p0range==None:
+			p0range=p0
+		if x==None:
+			self.xlist=numpy.arange(0,100)
+		else:
+			self.xlist=x
+		self.pp=[]
+		for n, i in enumerate(p0):
+			a=plt.axes([0.25, n/25.+0.03, 0.65, 0.03])
+			self.pp.append(plt.Slider(a, 'p['+str(n)+']=', i-(p0range[n]/2.), i+(p0range[n]/2.), valinit=i))
+			self.pp[-1].on_changed(self.findupdate)
+		self.plott, = self.ax.plot(self.xlist,self.fitfunc.peval(self.xlist, p0), lw=2)
+
 class fig2d:
 	''' 2D+color figure and operations on it. '''
 	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat, aspect=1, extent=None): 
@@ -486,7 +537,7 @@ class fig2d:
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
 		self.cb = plt.colorbar(format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
 		self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
-		self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right-0.2, top=config.adjust_top, wspace=None, hspace=None)
+		#self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right-0.2, top=config.adjust_top, wspace=None, hspace=None)
 
 		for label in self.ax.get_xticklabels() + self.ax.get_yticklabels():
 			label.set_fontsize(self.fonts) 
