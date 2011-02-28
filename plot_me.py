@@ -130,12 +130,17 @@ class fit:
 		''' Line function used for fitting. Needed as a prototype. '''
 		
 		def peval(self, x, p): # evaluate the function (must be present)
-			''' evaluate the function (must be present and should be modified according to needs)'''
+			''' evaluates the function (must be present and should be modified according to needs)'''
 			return (p[0]+(p[1]*x))
 
 		def residuals(self, p, x, y):
-			''' find deviation (must be present) '''
+			''' returns deviation (must be present for leastsq) '''
 			err = y-self.peval(x,p)
+			return err
+
+		def residualsf(self, p, x, y):
+			''' returns deviation - sum of the squares (must be present for fmin_slsqp) '''
+			err = ((y-self.peval(x,p))**2).sum()
 			return err
 
 	class Pseudo_Voigt(Line): 
@@ -275,10 +280,13 @@ class data:
 				line+=1
 		return numpy.array(f1, dtype='float')
 
-	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None): 
+	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None, leastsq=True, maxerr=1e-10, debug=0, boundaries=[]): 
 		''' fit the data with function (returns the set of parameters) '''
 		try:
-			from scipy.optimize import leastsq
+			if leastsq:
+				from scipy.optimize import leastsq
+			else:
+				from scipy.optimize import fmin_slsqp
 		except:
 			print("no scipy")
 		if range==[0,0]:
@@ -302,19 +310,22 @@ class data:
 			self.fitfunc=fit.Pseudo_Voigt()
 		else:
 			self.fitfunc=function
-		self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), maxfev=maximumfittingcycles)[0]
+		if leastsq:
+			self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), maxfev=maximumfittingcycles)
+		else:
+			self.p0=fmin_slsqp(self.fitfunc.residualsf, x0=self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), acc=maxerr, iter=maximumfittingcycles, iprint=debug, full_output=1,bounds=boundaries)
 		return self.p0
 
 	def plotfit(self, name="fit", x_y_col=[0, 1], **kwargs):
 		''' plot the result of fitting '''
 		data1=self.data.copy()
-		data1[:,x_y_col[1]]=self.fitfunc.peval(data1[:,x_y_col[0]],self.p0)
+		data1[:,x_y_col[1]]=self.fitfunc.peval(data1[:,x_y_col[0]],self.p0[0])
 		#y=self.fitfunc.peval(self.data[:,x],self.p0)
 		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
 
 	def getfiterr(self, x_y_col=[0, 1]):
 		''' returns mean square error per measurements point '''
-		return (self.fitfunc.residuals(self.p0, self.data[:,x_y_col[0]], self.data[:,x_y_col[1]])**2).sum()/float(self.data.shape[0])
+		return (self.fitfunc.residuals(self.p0[0], self.data[:,x_y_col[0]], self.data[:,x_y_col[1]])**2).sum()/float(self.data.shape[0])
 
 	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, **kwargs):
 		''' plot the data '''

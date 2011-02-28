@@ -38,9 +38,15 @@ class line(plot_me.fit.Line): #line
 
 d=i.loadzip("plot_me_test.txt.zip","plot_me_test.txt")
 try:
-	print "parameters:", (d.fit(p0=[1, 1], range=[0,0], x_y_col=[0,1], function=plot_me.fit.Line())) # print the parameters
+	print "parameters leastsq:", (d.fit(p0=[1, 1], range=[0,0], x_y_col=[0,1], function=plot_me.fit.Line())) # print the parameters
 	d.plotfit("fit") # plot the fit
-	print "error:", d.getfiterr()
+	err1=d.getfiterr()
+	print "error:", err1
+	print "parameters fmin_slsqp:", (d.fit(p0=[91, 1.2], range=[0,0], x_y_col=[0,1], function=plot_me.fit.Line(), leastsq=False, maxerr=1e-70, debug=0, boundaries=[(90, 92),(0.5, 1.5)])) # print the parameters
+	d.plotfit("fit") # plot the fit
+	err2=d.getfiterr()
+	print "error:", err2, "\n"
+	print "error:", (err1-err2)
 except:
 	pass
 
