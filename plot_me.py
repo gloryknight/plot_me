@@ -214,11 +214,19 @@ class data:
 		self.data=numpy.column_stack((rng, data))
 		return self
 
-	def th2q(self, Energy=10.5, th2=0):
+	def th2q(self, Energy=8, th2=0):
 		''' converts x coordinates from angular to q space (powder diffraction) '''
-		lambd=12.3984428/float(Energy)
 		pi4=4*numpy.pi
-		self.data[:, th2]=pi4*numpy.sin(numpy.radians(self.data[:, th2]/2.))/lambd
+		lambd=12.3984428/float(Energy) # wavelength
+		self.data[:, th2]=pi4*numpy.sin(numpy.radians(self.data[:, th2]/2.))/lambd # q vector
+		return self
+
+	def th2th(self, Energyold=8, Energynew=8, th2=0):
+		''' converts x coordinates from angular to q space (powder diffraction) '''
+		self.th2q(Energy=Energyold, th2=th2)
+		pi4=4*numpy.pi
+		lambd=12.3984428/float(Energynew) # wavelength
+		self.data[:, th2]=2*numpy.degrees(numpy.arcsin(self.data[:, th2] * lambd/pi4)) # 2th in degrees
 		return self
 
 	def fftsmoothme(self, lowpass=10): 
