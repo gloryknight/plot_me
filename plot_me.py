@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.36"
+version="2.37"
 
 #Classes: fig->data->line, my_function
 
@@ -335,10 +335,12 @@ class data:
 		''' returns mean square error per measurements point '''
 		return (self.fitfunc.residuals(self.p0[0], self.data[:,x_y_col[0]], self.data[:,x_y_col[1]])**2).sum()/float(self.data.shape[0])
 
-	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, **kwargs):
+	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, lw=None, **kwargs):
 		''' plot the data '''
 		if data==None:
 			data=self.data
+		if lw==None:
+			lw=self.lw
 		if scale==0:
 			scale=1/self.data[:,y_col].max()
 		if log==1:
@@ -349,7 +351,7 @@ class data:
 			plotf=self.ax.loglog
 		else:
 			plotf=self.ax.plot
-		return self.draw(data[:,x_col], data[:,y_col]*scale, marker, self.lw, label, scale, plotf=plotf, **kwargs)
+		return self.draw(data[:,x_col], data[:,y_col]*scale, marker, lw, label, scale, plotf=plotf, **kwargs)
 
 	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, plotf=None, **kwargs):
 		''' draw the data (pass parameters to the plot directrly)'''
