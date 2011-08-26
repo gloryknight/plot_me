@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.37"
+version="2.39"
 
 #Classes: fig->data->line, my_function
 
 #import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from matplotlib.mlab import griddata
 import numpy
 import pylab
@@ -39,11 +40,13 @@ class config:
 #	colorformat='$10^{%d}$' # format of the color scale
 #	colorformat='%s' # format of the color scale
 	colorformat='%g' # format of the color scale
-	cmap=pylab.cm.jet # default colormap of the 2d plot
+	ncmap='jet'# default colormap of the 2d plot and the line cycle. 'spectral' for more see http://www.scipy.org/Cookbook/Matplotlib/Show_colormaps
 	interpolation2d='nearest' # 2d interpolation
 	origin2d='lower'
 	whongdata="Wrong data in line: " # info message for wrong input data
 	bbox_inches='tight'
+	ncolors = 0 #number of colors in the line cycle.
+	ltrans=0.5 #transparancy of the legend
 
 
 #~ linestyle 	description
@@ -170,9 +173,9 @@ class data:
 		self.data=None
 		self.z=None
 
-	def load(self, filename): 
+	def load(self, filename, **kwargs): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
-		self.data=self.read(filename)
+		self.data=self.read(filename, **kwargs)
 		return self
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
 
@@ -331,9 +334,13 @@ class data:
 		#y=self.fitfunc.peval(self.data[:,x],self.p0)
 		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
 
-	def getfiterr(self, x_y_col=[0, 1]):
+	def getfiterr(self, x_y_col=[0, 1], range=[0,0]):
+		if range==[0,0]:
+			data=self.data
+		else:
+			data=self.data[(self.data[:,x_y_col[0]]>range[0]) & (self.data[:,x_y_col[0]]<range[1]),:]
 		''' returns mean square error per measurements point '''
-		return (self.fitfunc.residuals(self.p0[0], self.data[:,x_y_col[0]], self.data[:,x_y_col[1]])**2).sum()/float(self.data.shape[0])
+		return (self.fitfunc.residuals(self.p0[0], data[:,x_y_col[0]], data[:,x_y_col[1]])**2).sum()/float(data.shape[0])
 
 	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, lw=None, **kwargs):
 		''' plot the data '''
@@ -360,9 +367,9 @@ class data:
 		l, = plotf(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
 		return l
 
-	def read(self, filename):
+	def read(self, filename, **kwargs):
 		''' Loads data from the file into a new array '''
-		return numpy.loadtxt(filename)
+		return numpy.loadtxt(filename, **kwargs)
 
 	def read_slow(self, filename, scan_nr=None):
 		''' Loads data from the file into a new array - slow but error prune '''
@@ -444,6 +451,10 @@ class fig:
 	def plotsetup(self):
 		''' finalize the plot setup '''
 		self.fig = plt.figure(figsize=config.figsize)
+		if config.ncolors>0:
+			cmap=plt.cm.get_cmap(name=config.ncmap)
+			mycolors = [cmap(i) for i in numpy.linspace(0, 0.9, config.ncolors)]
+			mpl.axes.set_default_color_cycle(mycolors)
 		self.ax = self.fig.add_subplot(111)
 		self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
 		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
@@ -458,6 +469,9 @@ class fig:
 #			line.set_color('green')
 			line.set_markersize(config.markersize)
 			line.set_markeredgewidth(config.markeredgewidth)
+		self.fig.canvas.set_window_title(self.xt+"+"+self.yt) 
+		
+
 
 	def data(self):
 		''' returns a data object '''
@@ -476,6 +490,8 @@ class fig:
 	def legend(self, *args, **kwargs):
 		''' Adds a legend. Use loc. 1 to 10 to change location '''
 		leg=plt.legend(*args, **kwargs)
+		leg.get_frame().set_alpha(config.ltrans)
+		leg.draggable()
 		for t in leg.get_texts():
 			t.set_fontsize(self.fonts) # the legend text fontsize
 
@@ -566,19 +582,24 @@ class fig2d:
 			line.set_markeredgewidth(3)
 		for t in self.cb.ax.get_yticklabels():
 			t.set_fontsize(self.fonts)
+		self.fig.canvas.set_window_title(self.cbt) 
 
 	def add(self, data):
 		''' add data to the plot (must be a three dimensional numpy array) '''
 		self.data=data
 		return self
 
-	def addgrid(self, dqx, dqy, di, xpix=1500, ypix=1000):
+	def addgrid(self, dqx, dqy, di, xpix=1500, ypix=1000, xmm=[], ymm=[], resimpr=1):
 		''' add irregular data to 2D plot and makes a grid in linear space '''
-		dqx=numpy.array(dqx)
-		dqy=numpy.array(dqy)
-		di=numpy.array(di)
-		xi = numpy.linspace(dqx.min(),dqx.max(),xpix)
-		yi = numpy.linspace(dqy.min(),dqy.max(),ypix)
+#		dqx=numpy.array(dqx)
+#		dqy=numpy.array(dqy)
+#		di=numpy.array(di)
+		if xmm==[]:
+			xmm=[dqx.min(),dqx.max()]
+		xi = numpy.linspace(xmm[0],xmm[1],xpix*resimpr)
+		if ymm==[]:
+			ymm=[dqy.min(),dqy.max()]
+		yi = numpy.linspace(ymm[0], ymm[1],ypix*resimpr)
 		self.data=griddata(dqx,dqy,di,xi,yi)
 		return self
 
@@ -595,9 +616,17 @@ class fig2d:
 #		self.ax = plt.axes()
 
 		if self.lz!=None:
-			l = plt.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+			cmap=plt.cm.get_cmap(name=config.ncmap)
+			if config.ncolors>0:
+				l = plt.contourf(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+			else:
+				l = plt.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 		else:
-			l = plt.imshow(self.data,cmap=config.cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+			cmap=plt.cm.get_cmap(name=config.ncmap) 
+			if config.ncolors>0:
+				l = plt.contourf(self.data,cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+			else:
+				l = plt.imshow(self.data,cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 		self.plotsetup()
 #		self.ax.set_xticks(xtricks)
 		return self
