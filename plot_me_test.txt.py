@@ -7,12 +7,18 @@ from numpy.random import randn
 
 # random 2D
 Z = np.clip(randn(250, 250), -1, 1)
-i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", zlimit=(0,10), colorformat="%g", extent=[0, 100, 0, 100])
+i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", zlimit=(0,10), colorformat="%2.1f", extent=[0, 100, 0, 100], fixcbsize=6, cbpad=0.08)
 #plot_me.config.ncmap='hot'
-plot_me.config.ncolors=10
+#plot_me.config.ncolors=10
 #i.colorformat='$10^{%d}$'
 i.add(Z).plot()
+i.ax.text(0.5,1, "Voltage=1V", fontsize=20,bbox=dict(facecolor='white', alpha=0.5))
+
+i.fig.subplots_adjust(left=0.14, right=0.69, bottom=0.13, top=0.94)
+
+plot_me.config.bbox_inches=None
 #i.save("test1.png")
+plot_me.config.bbox_inches='tight'
 
 plot_me.config.ncmap='Paired'
 # 2D from arbitrary data (convert to grid first)
@@ -49,17 +55,25 @@ try:
 	err1=d.getfiterr()
 	print "error:", err1
 	print "parameters fmin_slsqp:", (d.fit(p0=[91, 1.2], range=[0,0], x_y_col=[0,1], function=plot_me.fit.Line(), leastsq=False, maxerr=1e-70, debug=0, boundaries=[(90, 92),(0.5, 1.5)])) # print the parameters
-	d.plotfit("fit1") # plot the fit
+	d.plotfit("fit") # plot the fit
 	err2=d.getfiterr()
 	print "error:", err2, "\n"
 	print "error:", (err1-err2)
 except:
 	pass
 
+i.legend()
+
 # Drawind warious data
 d=i.data()
 d.add1d([81, 83, 87], xrange=[10, 15]).plot(0,1, "add1d", log=0)
 d.draw([5, 8, 9, 6, 5], [80, 81, 85, 84, 80], l="draw")
+
+#i4=plot_me.fig("Time (seconds)", "Power (arb. units)") #, ylimit=[30,180])
+#d4=i4.data()
+#d4.draw([5, 8, 9, 6, 5], [80, 81, 85, 84, 80], l="draw")
+#d4.draw([5, 8, 9, 6, 5], [81, 85, 85, 80, 83], l="draw1")
+
 #plot_me.config.ltrans=1 #set transparancy of the legend to zero.
 i.legend() # add the legend
 

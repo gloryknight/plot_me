@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.39"
+version="2.40"
 
 #Classes: fig->data->line, my_function
 
@@ -40,6 +40,7 @@ class config:
 #	colorformat='$10^{%d}$' # format of the color scale
 #	colorformat='%s' # format of the color scale
 	colorformat='%g' # format of the color scale
+	hcorient=0
 	ncmap='jet'# default colormap of the 2d plot and the line cycle. 'spectral' for more see http://www.scipy.org/Cookbook/Matplotlib/Show_colormaps
 	interpolation2d='nearest' # 2d interpolation
 	origin2d='lower'
@@ -217,19 +218,25 @@ class data:
 		self.data=numpy.column_stack((rng, data))
 		return self
 
-	def th2q(self, Energy=8, th2=0):
+	def th2q(self, Energy=8, th2=0): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to q space (powder diffraction) '''
 		pi4=4*numpy.pi
-		lambd=12.3984428/float(Energy) # wavelength
-		self.data[:, th2]=pi4*numpy.sin(numpy.radians(self.data[:, th2]/2.))/lambd # q vector
+		lambd=12.3984428/float(Energy) # wavelength in nm
+		self.data[:, th2]=pi4*numpy.sin(numpy.radians(self.data[:, th2]/2.))/lambd # q vector in 1/nm
 		return self
 
-	def th2th(self, Energyold=8, Energynew=8, th2=0):
+	def th2th(self, Energyold=8, Energynew=8, th2=0): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to q space (powder diffraction) '''
 		self.th2q(Energy=Energyold, th2=th2)
 		pi4=4*numpy.pi
-		lambd=12.3984428/float(Energynew) # wavelength
+		lambd=12.3984428/float(Energynew) # wavelength in nm
 		self.data[:, th2]=2*numpy.degrees(numpy.arcsin(self.data[:, th2] * lambd/pi4)) # 2th in degrees
+		return self
+
+	def th2d(self, Energy=8, th2=0): # energy in kEv. th2 - axis of angles.
+		''' converts x coordinates from angular to lattice spacings (powder diffraction) '''
+		self.th2q(Energy=Energy, th2=th2)
+		self.data[:, th2]=(2*numpy.pi)/self.data[:, th2] # spacing
 		return self
 
 	def fftsmoothme(self, lowpass=10): 
@@ -418,7 +425,7 @@ class data:
 class fig:
 	''' 2D figure and operations on it. '''
 
-	def __init__(self, xt=config.x_label, yt=config.y_label, xlimit=None, ylimit=None, lw=config.linewidth, fonts=config.fonts): 
+	def __init__(self, xt=config.x_label, yt=config.y_label, xlimit=None, ylimit=None, lw=config.linewidth, fonts=config.fonts, grid=False): 
 		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
@@ -427,6 +434,7 @@ class fig:
 		self.lw=lw # line width
 		self.fonts=fonts # font size
 		self.plotsetup()
+		pylab.grid(grid)
 
 	def onscroll(self, event):
 		''' Allow zoom/unzoom with the mouse wheel '''
@@ -548,13 +556,17 @@ class fig:
 		self.pp=[]
 		for n, i in enumerate(p0):
 			a=plt.axes([0.25, n/25.+0.03, 0.65, 0.03])
-			self.pp.append(plt.Slider(a, 'p['+str(n)+']=', i-(p0range[n]/2.), i+(p0range[n]/2.), valinit=i))
+#			print i, (p0range[n]/2.)
+			if i>0: 
+				self.pp.append(plt.Slider(a, 'p['+str(n)+']=', i-(p0range[n]/2.), i+(p0range[n]/2.), valinit=i))
+			else:
+				self.pp.append(plt.Slider(a, 'p['+str(n)+']=', i+(p0range[n]/2.), i-(p0range[n]/2.), valinit=i))
 			self.pp[-1].on_changed(self.findupdate)
 		self.plott, = self.ax.plot(self.xlist,self.fitfunc.peval(self.xlist, p0), lw=2)
 
 class fig2d:
 	''' 2D+color figure and operations on it. '''
-	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat, aspect=1, extent=None): 
+	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat, hcorient=config.hcorient, aspect=1, extent=None, fixcbsize=0, cbpad=0.05): 
 		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
@@ -567,19 +579,41 @@ class fig2d:
 		self.colorformat=colorformat
 		self.aspect=aspect
 		self.extent=extent
-	
+		self.hcorient=hcorient
+		self.fixcbsize=fixcbsize
+		self.cbpad=cbpad
+
 	def plotsetup(self):
 		''' finalize the plot setup '''
 		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
-		self.cb = plt.colorbar(format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
-		self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
+		if self.fixcbsize!=0:
+			from mpl_toolkits.axes_grid1 import make_axes_locatable
+			divider = make_axes_locatable(self.ax)
+			cax = divider.append_axes("right", size=str(self.fixcbsize)+"%", pad=self.cbpad)
+			for cline in cax.xaxis.get_ticklines() + cax.yaxis.get_ticklines():
+				cline.set_markeredgewidth(config.axis_width)
+			if self.hcorient==1:
+				self.cb = plt.colorbar(self.im, orientation='horizontal', cax=cax,format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
+				self.cb.set_label(self.cbt, rotation=0, fontsize=self.fonts)
+			else:
+				self.cb = plt.colorbar(self.im, cax=cax, format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
+				self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
+		else:
+			if self.hcorient==1:
+				self.cb = plt.colorbar(self.im, orientation='horizontal',format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
+				self.cb.set_label(self.cbt, rotation=0, fontsize=self.fonts)
+			else:
+				self.cb = plt.colorbar(self.im, format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
+				self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
 		#self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right-0.2, top=config.adjust_top, wspace=None, hspace=None)
 
 		for label in self.ax.get_xticklabels() + self.ax.get_yticklabels():
 			label.set_fontsize(self.fonts) 
+		for spine in self.ax.spines.itervalues():
+		      spine.set_linewidth(config.axis_width)
 		for line in self.ax.xaxis.get_ticklines() + self.ax.yaxis.get_ticklines():
-			line.set_markeredgewidth(3)
+			line.set_markeredgewidth(config.axis_width)
 		for t in self.cb.ax.get_yticklabels():
 			t.set_fontsize(self.fonts)
 		self.fig.canvas.set_window_title(self.cbt) 
@@ -618,15 +652,15 @@ class fig2d:
 		if self.lz!=None:
 			cmap=plt.cm.get_cmap(name=config.ncmap)
 			if config.ncolors>0:
-				l = plt.contourf(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+				self.im = plt.contourf(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 			else:
-				l = plt.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+				self.im = plt.imshow(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 		else:
 			cmap=plt.cm.get_cmap(name=config.ncmap) 
 			if config.ncolors>0:
-				l = plt.contourf(self.data,cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+				self.im = plt.contourf(self.data,cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 			else:
-				l = plt.imshow(self.data,cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
+				self.im = plt.imshow(self.data,cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
 		self.plotsetup()
 #		self.ax.set_xticks(xtricks)
 		return self
