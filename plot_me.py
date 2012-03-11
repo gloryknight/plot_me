@@ -13,6 +13,7 @@ import numpy
 import pylab
 import sys
 import zipfile
+import itertools # iteration tools for fit2D
 
 class config:
 	'''
@@ -96,7 +97,7 @@ def say(what):
 	#print what
 	pass
 
-class zip: # load zip (can be used directly or from figure by loadzip)
+class zipf: # load zip (can be used directly or from figure by loadzip)
 	'''
 	work with zip archives
 	'''
@@ -195,7 +196,7 @@ class data:
 		''' Loads data from the file in a zip file returns new data object '''
 		if ((self.z==None) or (self.z.zipname!=zipname)):
 			del self.z
-			self.z=zip(zipname)
+			self.z=zipf(zipname)
 		dd=self.z.read(filename)
 		data=self.work_read(dd.split("\n"), scan_nr)
 		if (scan_nr==None) or (self.data==None):
@@ -617,6 +618,76 @@ class fig2d:
 		for t in self.cb.ax.get_yticklabels():
 			t.set_fontsize(self.fonts)
 		self.fig.canvas.set_window_title(self.cbt) 
+
+	def loadanf(self,name, extl="Topo",extr="Fwd"):
+		''' Load Anfatec file format '''
+		conf=open( name+".txt" , "r" ).read().split("\n")
+		for index, item in enumerate(conf): 
+			if item == "FileDescBegin":
+				if conf[index+2][11:]==extl+extr:
+					zscale=float(conf[index+3][11:])
+				if conf[index+2][11:]=="DMX"+extr:
+					xscale=float(conf[index+3][11:])
+				if conf[index+2][11:]=="DMY"+extr:
+					yscale=float(conf[index+3][11:])
+			if item[:10] == "XScanRange":
+#				print item[14:]
+				xscanrange=float(item[14:])
+		Z = numpy.fromfile(name+extl+extr+".int", dtype=numpy.int32)
+		shape=numpy.sqrt(numpy.size(Z))
+		Z=numpy.flipud(Z.reshape((shape,shape)))*zscale
+		self.extent=[0, xscanrange, 0, xscanrange]
+		self.data=Z
+		return self
+
+	def polyfit2d(self, order=3, x=None, y=None): # x,y - coordinates of datapoints, data=Z
+		''' Polynomial fit in 2D (help for poly2d)'''
+		shape=numpy.sqrt(numpy.size(self.data))
+		if x==None:
+			x, y = numpy.meshgrid(numpy.linspace(0, shape-1, shape), numpy.linspace(0, shape-1, shape))
+			x = x.flatten()
+			y = y.flatten()
+		ncols = (order + 1)**2
+		G = numpy.zeros((numpy.size(x), ncols))
+		ij = itertools.product(range(order+1), range(order+1))
+		for k, (i,j) in enumerate(ij):
+			G[:,k] = x**i * y**j
+		m, _, _, _ = numpy.linalg.lstsq(G, self.data.flatten())
+		return m
+
+	def polyval2d(self, m, x=None, y=None): # x,y - coordinates of datapoints, data=Z
+		''' Evaluate 2D polynomial (help for poly2d) '''
+		if x==None:
+			shape=numpy.sqrt(numpy.size(self.data))
+			x, y = numpy.meshgrid(numpy.linspace(0, shape-1, shape), numpy.linspace(0, shape-1, shape))
+		order = int(numpy.sqrt(len(m)))
+		ij = itertools.product(range(order), range(order))
+		z = numpy.zeros_like(x)
+		for a, (i,j) in zip(m, ij):
+			z += a * x**i * y**j
+		return z
+
+	def poly2d(self, order=3):
+		''' Substract n-th order 2D polynomial from the data. (uses polyfit2d, polyval2d) '''
+		self.data=self.data-self.polyval2d(m=self.polyfit2d(order=order))
+		return self
+
+	def poly1d(self, order=3, v=None, x=None):
+		''' Substract n-th order 1D polynomial from the data. '''
+		shape=numpy.sqrt(numpy.size(self.data))
+		if x==None:
+			x=numpy.linspace(0, shape-1, shape)
+		if v==None:
+			for tl in range(int(shape)):
+				z = numpy.polyfit(x, self.data[tl,:], order)
+				p=numpy.poly1d(z)
+				self.data[tl,:] = self.data[tl,:] - p(x)
+		else:
+			for tl in range(int(shape)):
+				z = numpy.polyfit(x, self.data[:,tl], order)
+				p=numpy.poly1d(z)
+				self.data[:,tl] = self.data[:,tl] - p(x)
+		return self
 
 	def add(self, data):
 		''' add data to the plot (must be a three dimensional numpy array) '''
