@@ -219,25 +219,30 @@ class data:
 		self.data=numpy.column_stack((rng, data))
 		return self
 
-	def th2q(self, Energy=8, th2=0): # energy in kEv. th2 - axis of angles.
+	def th2q(self, Energy=8047.812, th2=0): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to q space (powder diffraction) '''
 		pi4=4*numpy.pi
-		lambd=12.3984428/float(Energy) # wavelength in nm
-		self.data[:, th2]=pi4*numpy.sin(numpy.radians(self.data[:, th2]/2.))/lambd # q vector in 1/nm
+		lambd=12398.4428/float(Energy) # wavelength in A
+		self.data[:, th2]=pi4*numpy.sin(numpy.radians(self.data[:, th2]/2.))/lambd # q vector in 1/A
 		return self
 
-	def th2th(self, Energyold=8, Energynew=8, th2=0): # energy in kEv. th2 - axis of angles.
-		''' converts x coordinates from angular to q space (powder diffraction) '''
-		self.th2q(Energy=Energyold, th2=th2)
+	def q2th(self, Energy=8047.812, th2=0): # energy in kEv. th2 - axis of angles.
+		''' converts x coordinates from q to angular space (powder diffraction) '''
 		pi4=4*numpy.pi
-		lambd=12.3984428/float(Energynew) # wavelength in nm
+		lambd=12398.4428/float(Energy) # wavelength in A
 		self.data[:, th2]=2*numpy.degrees(numpy.arcsin(self.data[:, th2] * lambd/pi4)) # 2th in degrees
 		return self
 
-	def th2d(self, Energy=8, th2=0): # energy in kEv. th2 - axis of angles.
+	def th2th(self, Energyold=8047.812, Energynew=8047.812, th2=0): # energy in Ev. th2 - axis of angles.
+		''' converts x coordinates from angules in one energy to another (powder diffraction) '''
+		self.th2q(Energy=Energyold, th2=th2)
+		self.q2th(Energy=Energynew, th2=th2)
+		return self
+
+	def th2d(self, Energy=8047.812, th2=0): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to lattice spacings (powder diffraction) '''
 		self.th2q(Energy=Energy, th2=th2)
-		self.data[:, th2]=(2*numpy.pi)/self.data[:, th2] # spacing
+		self.data[:, th2]=(2*numpy.pi)/self.data[:, th2] # spacing in A
 		return self
 
 	def fftsmoothme(self, lowpass=10): 
@@ -251,24 +256,26 @@ class data:
 		self.data[:,1]=numpy.fft.ifft(fft).real
 		return self
 
-	def smoothme(self, every): 
-		''' running average of the data in this class (modyfies the data) '''
-		size=numpy.shape(self.data)[0]
-		for n in range(1, every):
-			s=0
-			for i in range(0,n):
-				s+=self.data[i]
-			self.data[n]=s/n
-		for n in range(0, size-every):
-			s=0
-			for i in range(0,every):
-				s+=self.data[n+i]
-			self.data[n]=s/every
-		for n in range(size-every, size):
-			s=0
-			for i in range(n,size):
-				s+=self.data[i]
-			self.data[n]=s/(size-n)
+	def smoothme(self, every=10, maxdiv=1e15, window=numpy.hanning): 
+		''' smooth the data using a window on the data in this class (modyfies the data) '''
+		self.smooth(self.data, every, maxdiv, window)
+		return self
+
+	def smooth(self, data, every=10, maxdiv=1e15, window=numpy.hanning): 
+		''' smooth the data using a window '''
+		#window=['flat', numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve]:
+		x=data[:,1]
+		s=numpy.r_[2*x[0]-x[every:1:-1], x, 2*x[-1]-x[-1:-every:-1]]
+		if window == 'flat': #moving average
+			w = numpy.ones(every,'d')
+		else:
+			w = window(every)
+		smooth=numpy.convolve(w/w.sum(), s, mode='same')[every-1:-every+1]
+		if maxdiv!=1e15:
+			diff=abs(x-smooth)<maxdiv
+			data[:,1]=(smooth*diff)+(x*numpy.invert(diff))
+		else:
+			data[:,1]=smooth
 		return self
 
 	def averageme(self, every): 
@@ -480,8 +487,6 @@ class fig:
 			line.set_markeredgewidth(config.markeredgewidth)
 		self.fig.canvas.set_window_title(self.xt+"+"+self.yt) 
 		
-
-
 	def data(self):
 		''' returns a data object '''
 		return data(self.ax, self.lw)
@@ -638,6 +643,27 @@ class fig2d:
 		Z=numpy.flipud(Z.reshape((shape,shape)))*zscale
 		self.extent=[0, xscanrange, 0, xscanrange]
 		self.data=Z
+		return self
+
+	def gauss_kern(self, size, sizey=None):
+		""" Returns a normalized 2D gauss kernel array for convolutions """
+		size = int(size)
+		if not sizey:
+			sizey = size
+		else:
+			sizey = int(sizey)
+		x, y = numpy.mgrid[-size:size+1, -sizey:sizey+1]
+		g = numpy.exp(-(x**2/float(size) + y**2/float(sizey)))
+		return g / g.sum()
+
+	def blurme(self, n, ny=None) :
+		""" blurs the image by convolving with a gaussian kernel of typical
+		size n. The optional keyword argument ny allows for a different
+		size in the y direction.
+		"""
+		g = self.gauss_kern(n, sizey=ny)
+		from scipy import signal
+		self.data = signal.convolve(self.data, g, mode='valid')
 		return self
 
 	def polyfit2d(self, order=3, x=None, y=None): # x,y - coordinates of datapoints, data=Z
