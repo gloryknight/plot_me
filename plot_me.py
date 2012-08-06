@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.40"
+version="2.42"
 
 #Classes: fig->data->line, my_function
 
@@ -9,11 +9,22 @@ version="2.40"
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.mlab import griddata
+# configuration see the "site-packages\matplotlib\mpl-data\matplotlibrc" file
+mpl.rcParams['lines.linewidth']=2
+mpl.rcParams['axes.linewidth']=2
+mpl.rcParams['font.size']=20
+mpl.rcParams['lines.markeredgewidth']=2
+mpl.rcParams['lines.markersize']=5
 import numpy
 import pylab
 import sys
 import zipfile
 import itertools # iteration tools for fit2D
+try:
+	from scipy.optimize import leastsq
+	from scipy.optimize import fmin_slsqp
+except:
+	print("no scipy")
 
 class config:
 	'''
@@ -28,8 +39,7 @@ class config:
 	fonts=20
 	dpi=200 #None
 	axis_width=2 # axis line width
-	markeredgewidth=2 # axis markers
-	markersize=5 # axis marker length
+#	markeredgewidth=2 # axis markers
 	linewidth=2 # plot line with
 	MarkerSize=linewidth*5
 	adjust_left=0.11 # - parameters of the plot
@@ -152,13 +162,14 @@ class fit:
 		''' Pseudo-Voigt function used for fitting. '''
 
 		def peval(self, x, p): 
-			return (p[0]+p[1]*(abs(p[2])*self.lagr(x,p)+(1-p[2])*self.gaussian(x,p)))
+			tx=((x-p[3])/p[4])**2
+			return (p[0]+p[1]*((p[2]*(1/(1+tx)))+((1-p[2])*numpy.exp(-0.69314718056*tx))))
 
-		def lagr(self, x, p):
+		def lorenzian(self, x, p):
 			return (1/(1+(((x-p[3])/p[4])**2)))
 			
 		def gaussian(self, x, p):
-			return (numpy.exp(-numpy.log(2)*((x-p[3])/p[4])**2))
+			return (numpy.exp(-0.69314718056*((x-p[3])/p[4])**2))
 
 	class Gaussian(Line): 
 		''' Gaussian function used for fitting. '''
@@ -174,15 +185,14 @@ class data:
 		self.lw=lw
 		self.data=None
 		self.z=None
+		self.x=0
+		self.y=1
 
 	def load(self, filename, **kwargs): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
 		self.data=self.read(filename, **kwargs)
 		return self
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
-
-	def summ(self, a, b):
-		return numpy.vstack((a,b)) 
 
 	def load_slow(self, filename, scan_nr=None): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
@@ -217,30 +227,45 @@ class data:
 		if xrange!=[0,0]:
 			rng=xrange[0]+(rng*(xrange[1]-xrange[0])/float(data.shape[0]-1))
 		self.data=numpy.column_stack((rng, data))
+		self.x=0
+		self.y=1
 		return self
 
-	def th2q(self, Energy=8047.812, th2=0): # energy in kEv. th2 - axis of angles.
+	def select(self, x,y):
+		self.x=x
+		self.y=y
+		return self
+
+	def th2q(self, Energy=8047.812, th2=None): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to q space (powder diffraction) '''
+		if th2==None:
+			th2=self.x
 		pi4=4*numpy.pi
 		lambd=12398.4428/float(Energy) # wavelength in A
 		self.data[:, th2]=pi4*numpy.sin(numpy.radians(self.data[:, th2]/2.))/lambd # q vector in 1/A
 		return self
 
-	def q2th(self, Energy=8047.812, th2=0): # energy in kEv. th2 - axis of angles.
+	def q2th(self, Energy=8047.812, th2=None): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from q to angular space (powder diffraction) '''
+		if th2==None:
+			th2=self.x
 		pi4=4*numpy.pi
 		lambd=12398.4428/float(Energy) # wavelength in A
 		self.data[:, th2]=2*numpy.degrees(numpy.arcsin(self.data[:, th2] * lambd/pi4)) # 2th in degrees
 		return self
-
-	def th2th(self, Energyold=8047.812, Energynew=8047.812, th2=0): # energy in Ev. th2 - axis of angles.
+		
+	def th2th(self, Energyold=8047.812, Energynew=8047.812, th2=None): # energy in Ev. th2 - axis of angles.
 		''' converts x coordinates from angules in one energy to another (powder diffraction) '''
+		if th2==None:
+			th2=self.x
 		self.th2q(Energy=Energyold, th2=th2)
 		self.q2th(Energy=Energynew, th2=th2)
 		return self
 
-	def th2d(self, Energy=8047.812, th2=0): # energy in kEv. th2 - axis of angles.
+	def th2d(self, Energy=8047.812, th2=None): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to lattice spacings (powder diffraction) '''
+		if th2==None:
+			th2=self.x
 		self.th2q(Energy=Energy, th2=th2)
 		self.data[:, th2]=(2*numpy.pi)/self.data[:, th2] # spacing in A
 		return self
@@ -248,7 +273,7 @@ class data:
 	def fftsmoothme(self, lowpass=10): 
 		''' FFT frequency cut makes the data smooth (modyfies the data) '''
 		gauss=fit.Gaussian().peval
-		fft=numpy.fft.fft(self.data[:,1])
+		fft=numpy.fft.fft(self.data[:,self.y])
 		fftl=len(fft)
 		for i in range(1, fftl):
 			fft[i]=fft[i]*(gauss(i, [0, 1, 0, lowpass])+gauss(i, [0, 1, fftl, lowpass]))
@@ -256,27 +281,28 @@ class data:
 		self.data[:,1]=numpy.fft.ifft(fft).real
 		return self
 
-	def smoothme(self, every=10, maxdiv=1e15, window=numpy.hanning): 
+	def smoothme(self, every=10, maxdiv=1e15, window=numpy.hanning, row=None): 
 		''' smooth the data using a window on the data in this class (modyfies the data) '''
-		self.smooth(self.data, every, maxdiv, window)
+		if row==None:
+			row=self.y
+		self.data[:,row]=self.smooth(self.data[:,row], every, maxdiv, window)
 		return self
 
 	def smooth(self, data, every=10, maxdiv=1e15, window=numpy.hanning): 
 		''' smooth the data using a window '''
 		#window=['flat', numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve]:
-		x=data[:,1]
-		s=numpy.r_[2*x[0]-x[every:1:-1], x, 2*x[-1]-x[-1:-every:-1]]
+		s=numpy.r_[2*data[0]-data[every:1:-1], data, 2*data[-1]-data[-1:-every:-1]]
 		if window == 'flat': #moving average
 			w = numpy.ones(every,'d')
 		else:
 			w = window(every)
 		smooth=numpy.convolve(w/w.sum(), s, mode='same')[every-1:-every+1]
 		if maxdiv!=1e15:
-			diff=abs(x-smooth)<maxdiv
-			data[:,1]=(smooth*diff)+(x*numpy.invert(diff))
+			diff=abs(data-smooth)<maxdiv
+			data=(smooth*diff)+(data*numpy.invert(diff))
 		else:
-			data[:,1]=smooth
-		return self
+			data=smooth
+		return data
 
 	def averageme(self, every): 
 		''' average simplify data on the data of the class (reduces ammount of points) '''
@@ -306,15 +332,10 @@ class data:
 				line+=1
 		return numpy.array(f1, dtype='float')
 
-	def fit(self, range=[0,0], x_y_col=[0,1], p0=None, maximumfittingcycles=20000, function=None, leastsq=True, maxerr=1e-10, debug=0, boundaries=[]): 
+	def fit(self, range=[0,0], x_y_col=None, p0=None, maximumfittingcycles=20000, function=None, ls=True, maxerr=1e-10, debug=0, boundaries=[]): 
 		''' fit the data with function (returns the set of parameters) '''
-		try:
-			if leastsq:
-				from scipy.optimize import leastsq
-			else:
-				from scipy.optimize import fmin_slsqp
-		except:
-			print("no scipy")
+		if x_y_col==None:
+			x_y_col=[self.x,self.y]
 		if range==[0,0]:
 			data=self.data
 		else:
@@ -336,20 +357,24 @@ class data:
 			self.fitfunc=fit.Pseudo_Voigt()
 		else:
 			self.fitfunc=function
-		if leastsq:
+		if ls:
 			self.p0=leastsq(self.fitfunc.residuals, self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), maxfev=maximumfittingcycles)
 		else:
 			self.p0=fmin_slsqp(self.fitfunc.residualsf, x0=self.p0_orig, args=(data[:,x_y_col[0]], data[:,x_y_col[1]]), acc=maxerr, iter=maximumfittingcycles, iprint=debug, full_output=1,bounds=boundaries)
 		return self.p0
 
-	def plotfit(self, name="fit", x_y_col=[0, 1], **kwargs):
+	def plotfit(self, name="fit", x_y_col=None, **kwargs):
 		''' plot the result of fitting '''
+		if x_y_col==None:
+			x_y_col=[self.x,self.y]
 		data1=self.data.copy()
 		data1[:,x_y_col[1]]=self.fitfunc.peval(data1[:,x_y_col[0]],self.p0[0])
 		#y=self.fitfunc.peval(self.data[:,x],self.p0)
 		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
 
-	def getfiterr(self, x_y_col=[0, 1], range=[0,0]):
+	def getfiterr(self, x_y_col=None, range=[0,0]):
+		if x_y_col==None:
+			x_y_col=[self.x,self.y]
 		if range==[0,0]:
 			data=self.data
 		else:
@@ -357,8 +382,12 @@ class data:
 		''' returns mean square error per measurements point '''
 		return (self.fitfunc.residuals(self.p0[0], data[:,x_y_col[0]], data[:,x_y_col[1]])**2).sum()/float(data.shape[0])
 
-	def plot(self, x_col=0, y_col=1, label=None, marker='', scale=1, data=None, log=0, lw=None, **kwargs):
+	def plot(self, x_col=None, y_col=None, label=None, marker='', scale=1, data=None, log=0, lw=None, **kwargs):
 		''' plot the data '''
+		if x_col==None:
+			x_col=self.x
+		if y_col==None:
+			y_col=self.y
 		if data==None:
 			data=self.data
 		if lw==None:
@@ -379,7 +408,7 @@ class data:
 		''' draw the data (pass parameters to the plot directrly)'''
 		if plotf==None:
 			plotf=self.ax.plot
-		l, = plotf(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
+		l = plotf(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
 		return l
 
 	def read(self, filename, **kwargs):
@@ -444,8 +473,9 @@ class fig:
 		self.plotsetup()
 		pylab.grid(grid)
 
+	'''
 	def onscroll(self, event):
-		''' Allow zoom/unzoom with the mouse wheel '''
+		# Allow zoom/unzoom with the mouse wheel
 		x = event.xdata
 		y = event.ydata
 		xx1, xx2=self.ax.get_xlim()
@@ -463,6 +493,7 @@ class fig:
 		self.ax.set_xlim(xx1,xx2)
 		self.ax.set_ylim(yy1,yy2)
 		self.fig.canvas.draw()
+	'''
 
 	def plotsetup(self):
 		''' finalize the plot setup '''
@@ -472,19 +503,11 @@ class fig:
 			mycolors = [cmap(i) for i in numpy.linspace(0, 0.9, config.ncolors)]
 			mpl.axes.set_default_color_cycle(mycolors)
 		self.ax = self.fig.add_subplot(111)
-		self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
+#		self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
 		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
 		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
 		self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right, top=config.adjust_top, wspace=None, hspace=None)
 
-		for spine in self.ax.spines.itervalues():
-		      spine.set_linewidth(config.axis_width)
-		for label in self.ax.get_xticklabels() + self.ax.get_yticklabels():
-			label.set_fontsize(self.fonts) 
-		for line in self.ax.xaxis.get_ticklines() + self.ax.yaxis.get_ticklines():
-#			line.set_color('green')
-			line.set_markersize(config.markersize)
-			line.set_markeredgewidth(config.markeredgewidth)
 		self.fig.canvas.set_window_title(self.xt+"+"+self.yt) 
 		
 	def data(self):
@@ -597,8 +620,8 @@ class fig2d:
 			from mpl_toolkits.axes_grid1 import make_axes_locatable
 			divider = make_axes_locatable(self.ax)
 			cax = divider.append_axes("right", size=str(self.fixcbsize)+"%", pad=self.cbpad)
-			for cline in cax.xaxis.get_ticklines() + cax.yaxis.get_ticklines():
-				cline.set_markeredgewidth(config.axis_width)
+#			for cline in cax.xaxis.get_ticklines() + cax.yaxis.get_ticklines():
+#				cline.set_markeredgewidth(config.axis_width)
 			if self.hcorient==1:
 				self.cb = plt.colorbar(self.im, orientation='horizontal', cax=cax,format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
 				self.cb.set_label(self.cbt, rotation=0, fontsize=self.fonts)
@@ -614,14 +637,6 @@ class fig2d:
 				self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
 		#self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right-0.2, top=config.adjust_top, wspace=None, hspace=None)
 
-		for label in self.ax.get_xticklabels() + self.ax.get_yticklabels():
-			label.set_fontsize(self.fonts) 
-		for spine in self.ax.spines.itervalues():
-		      spine.set_linewidth(config.axis_width)
-		for line in self.ax.xaxis.get_ticklines() + self.ax.yaxis.get_ticklines():
-			line.set_markeredgewidth(config.axis_width)
-		for t in self.cb.ax.get_yticklabels():
-			t.set_fontsize(self.fonts)
 		self.fig.canvas.set_window_title(self.cbt) 
 
 	def loadanf(self,name, extl="Topo",extr="Fwd"):
@@ -668,9 +683,10 @@ class fig2d:
 
 	def polyfit2d(self, order=3, x=None, y=None): # x,y - coordinates of datapoints, data=Z
 		''' Polynomial fit in 2D (help for poly2d)'''
-		shape=numpy.sqrt(numpy.size(self.data))
+		shape=numpy.shape(self.data)
+
 		if x==None:
-			x, y = numpy.meshgrid(numpy.linspace(0, shape-1, shape), numpy.linspace(0, shape-1, shape))
+			x, y = numpy.meshgrid(numpy.linspace(0, shape[0]-1, shape[0]), numpy.linspace(0, shape[1]-1, shape[1]))
 			x = x.flatten()
 			y = y.flatten()
 		ncols = (order + 1)**2
@@ -684,8 +700,8 @@ class fig2d:
 	def polyval2d(self, m, x=None, y=None): # x,y - coordinates of datapoints, data=Z
 		''' Evaluate 2D polynomial (help for poly2d) '''
 		if x==None:
-			shape=numpy.sqrt(numpy.size(self.data))
-			x, y = numpy.meshgrid(numpy.linspace(0, shape-1, shape), numpy.linspace(0, shape-1, shape))
+			shape=numpy.shape(self.data)
+			x, y = numpy.meshgrid(numpy.linspace(0, shape[1]-1, shape[1]), numpy.linspace(0, shape[0]-1, shape[0]))
 		order = int(numpy.sqrt(len(m)))
 		ij = itertools.product(range(order), range(order))
 		z = numpy.zeros_like(x)
@@ -700,16 +716,18 @@ class fig2d:
 
 	def poly1d(self, order=3, v=None, x=None):
 		''' Substract n-th order 1D polynomial from the data. '''
-		shape=numpy.sqrt(numpy.size(self.data))
-		if x==None:
-			x=numpy.linspace(0, shape-1, shape)
+		shape=numpy.shape(self.data)
 		if v==None:
-			for tl in range(int(shape)):
+			if x==None:
+				x=numpy.linspace(0, shape[1]-1, shape[1])
+			for tl in range(int(shape[0])):
 				z = numpy.polyfit(x, self.data[tl,:], order)
 				p=numpy.poly1d(z)
 				self.data[tl,:] = self.data[tl,:] - p(x)
 		else:
-			for tl in range(int(shape)):
+			if x==None:
+				x=numpy.linspace(0, shape[0]-1, shape[0])
+			for tl in range(int(shape[1])):
 				z = numpy.polyfit(x, self.data[:,tl], order)
 				p=numpy.poly1d(z)
 				self.data[:,tl] = self.data[:,tl] - p(x)
@@ -732,6 +750,11 @@ class fig2d:
 			ymm=[dqy.min(),dqy.max()]
 		yi = numpy.linspace(ymm[0], ymm[1],ypix*resimpr)
 		self.data=griddata(dqx,dqy,di,xi,yi)
+		return self
+
+	def add_line(self, data, *args, **kwargs):
+		''' add a line to the plot (similar to fig ) '''
+		self.ax.add_line(mpl.lines.Line2D(data[:, 0],data[:, 1], *args, **kwargs))
 		return self
 
 	def plotdata(self, data):
@@ -768,7 +791,7 @@ class fig2d:
 
 	def save(self, *args, **kwargs):
 		''' save the figure '''
-		plt.savefig( *args, bbox_inches=config.bbox_inches, **kwargs)
+		plt.savefig( *args, bbox_inches=config.bbox_inches, dpi = (config.dpi), **kwargs)
 
 	def label(self, x, y, text, dir=0):
 		''' add a label '''
