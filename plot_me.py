@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.42"
+version="2.43"
 
 #Classes: fig->data->line, my_function
 
@@ -12,9 +12,14 @@ from matplotlib.mlab import griddata
 # configuration see the "site-packages\matplotlib\mpl-data\matplotlibrc" file
 mpl.rcParams['lines.linewidth']=2
 mpl.rcParams['axes.linewidth']=2
+mpl.rcParams['xtick.major.width']=2
+mpl.rcParams['xtick.minor.width']=2
+mpl.rcParams['ytick.major.width']=2
+mpl.rcParams['ytick.minor.width']=2
 mpl.rcParams['font.size']=20
 mpl.rcParams['lines.markeredgewidth']=2
 mpl.rcParams['lines.markersize']=5
+mpl.rcParams['svg.fonttype'] = 'none' #comment this line if you want the text as path in svg.
 import numpy
 import pylab
 import sys
@@ -36,7 +41,6 @@ class config:
 #	adjust_bottom=0.11
 	figsize=(8,5) # size of the figure
 	figsize2d=(7,5) # size of the figure
-	fonts=20
 	dpi=200 #None
 	axis_width=2 # axis line width
 #	markeredgewidth=2 # axis markers
@@ -193,6 +197,9 @@ class data:
 		self.data=self.read(filename, **kwargs)
 		return self
 		#return self.draw(self.data[:,x_col], self.data[:,y_col]*scale, self.lw, label)
+
+	def summ(self, a, b):
+		return numpy.vstack((a,b)) 
 
 	def load_slow(self, filename, scan_nr=None): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
@@ -373,13 +380,13 @@ class data:
 		self.plot(x_y_col[0], x_y_col[1], name,"", data=data1, **kwargs)
 
 	def getfiterr(self, x_y_col=None, range=[0,0]):
+		''' returns mean square error per measurements point '''
 		if x_y_col==None:
 			x_y_col=[self.x,self.y]
 		if range==[0,0]:
 			data=self.data
 		else:
 			data=self.data[(self.data[:,x_y_col[0]]>range[0]) & (self.data[:,x_y_col[0]]<range[1]),:]
-		''' returns mean square error per measurements point '''
 		return (self.fitfunc.residuals(self.p0[0], data[:,x_y_col[0]], data[:,x_y_col[1]])**2).sum()/float(data.shape[0])
 
 	def plot(self, x_col=None, y_col=None, label=None, marker='', scale=1, data=None, log=0, lw=None, **kwargs):
@@ -462,14 +469,13 @@ class data:
 class fig:
 	''' 2D figure and operations on it. '''
 
-	def __init__(self, xt=config.x_label, yt=config.y_label, xlimit=None, ylimit=None, lw=config.linewidth, fonts=config.fonts, grid=False): 
+	def __init__(self, xt=config.x_label, yt=config.y_label, xlimit=None, ylimit=None, lw=config.linewidth, grid=False): 
 		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
 		self.lx=xlimit # x range eg. [0,1]
 		self.ly=ylimit # y range eg. [0,1]
 		self.lw=lw # line width
-		self.fonts=fonts # font size
 		self.plotsetup()
 		pylab.grid(grid)
 
@@ -504,8 +510,8 @@ class fig:
 			mpl.axes.set_default_color_cycle(mycolors)
 		self.ax = self.fig.add_subplot(111)
 #		self.fig.canvas.mpl_connect('scroll_event', self.onscroll)
-		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
-		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
+		self.ax.set_xlabel(self.xt)
+		self.ax.set_ylabel(self.yt)
 		self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right, top=config.adjust_top, wspace=None, hspace=None)
 
 		self.fig.canvas.set_window_title(self.xt+"+"+self.yt) 
@@ -529,8 +535,8 @@ class fig:
 		leg=plt.legend(*args, **kwargs)
 		leg.get_frame().set_alpha(config.ltrans)
 		leg.draggable()
-		for t in leg.get_texts():
-			t.set_fontsize(self.fonts) # the legend text fontsize
+#		for t in leg.get_texts():
+#			t.set_fontsize(self.fonts) # the legend text fontsize
 
 	def axis(self):
 		''' set axis limits '''
@@ -551,16 +557,18 @@ class fig:
 
 	def label(self, x, y, text, dir=0, **kwargs):
 		''' add a label to the plot '''
-		self.ax.text(x,y, text, rotation=dir, size=self.fonts, **kwargs) #, color='red'
+		self.ax.text(x,y, text, rotation=dir, **kwargs) #, color='red'
 
 	def plot(self, *args, **kwargs):
 		''' plot the data '''
 		data(self.ax, self.lw).draw(*args, **kwargs)
 
 	def close(self):
+		''' close the plot '''
 		plt.close()
 
 	def findupdate(self, val):
+		''' help function to  findpar'''
 		pr=[]
 		for lpn in self.pp:
 			pr.append(lpn.val)
@@ -595,7 +603,7 @@ class fig:
 
 class fig2d:
 	''' 2D+color figure and operations on it. '''
-	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, fonts=config.fonts, colorformat=config.colorformat, hcorient=config.hcorient, aspect=1, extent=None, fixcbsize=0, cbpad=0.05): 
+	def __init__(self, xt="X", yt="Y", cbt="Z", xlimit=None, ylimit=None, zlimit=None, linewidth=2, colorformat=config.colorformat, hcorient=config.hcorient, aspect=1, extent=None, fixcbsize=0, cbpad=0.05): 
 		''' Initialize new canvas '''
 		self.xt=xt # x title
 		self.yt=yt # y title
@@ -604,54 +612,60 @@ class fig2d:
 		self.ly=ylimit # y range eg. [0,1]
 		self.lz=zlimit # y range eg. [0,1]
 		self.lw=linewidth # line width
-		self.fonts=fonts # font size
 		self.colorformat=colorformat
 		self.aspect=aspect
 		self.extent=extent
 		self.hcorient=hcorient
 		self.fixcbsize=fixcbsize
 		self.cbpad=cbpad
+	
+	'''
+	def onpress(self,event):
+		if event.button!=0: return
+		x,y = event.xdata, event.ydata
+		print x, y
+		self.nf=plt.figure()
+		plt.show()
+#		self.fig.canvas.draw()
+	'''
 
 	def plotsetup(self):
 		''' finalize the plot setup '''
-		self.ax.set_xlabel(self.xt, fontsize=self.fonts)
-		self.ax.set_ylabel(self.yt, fontsize=self.fonts)
+		self.ax.set_xlabel(self.xt)
+		self.ax.set_ylabel(self.yt)
 		if self.fixcbsize!=0:
 			from mpl_toolkits.axes_grid1 import make_axes_locatable
 			divider = make_axes_locatable(self.ax)
 			cax = divider.append_axes("right", size=str(self.fixcbsize)+"%", pad=self.cbpad)
-#			for cline in cax.xaxis.get_ticklines() + cax.yaxis.get_ticklines():
-#				cline.set_markeredgewidth(config.axis_width)
 			if self.hcorient==1:
 				self.cb = plt.colorbar(self.im, orientation='horizontal', cax=cax,format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
-				self.cb.set_label(self.cbt, rotation=0, fontsize=self.fonts)
+				self.cb.set_label(self.cbt, rotation=0)
 			else:
 				self.cb = plt.colorbar(self.im, cax=cax, format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
-				self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
+				self.cb.set_label(self.cbt, rotation=-90)
 		else:
 			if self.hcorient==1:
 				self.cb = plt.colorbar(self.im, orientation='horizontal',format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
-				self.cb.set_label(self.cbt, rotation=0, fontsize=self.fonts)
+				self.cb.set_label(self.cbt, rotation=0)
 			else:
 				self.cb = plt.colorbar(self.im, format=pylab.FormatStrFormatter(self.colorformat)) # draw colorbar
-				self.cb.set_label(self.cbt, rotation=-90, fontsize=self.fonts)
-		#self.fig.subplots_adjust(left=config.adjust_left, bottom=config.adjust_bottom, right=config.adjust_right-0.2, top=config.adjust_top, wspace=None, hspace=None)
+				self.cb.set_label(self.cbt, rotation=-90)
 
 		self.fig.canvas.set_window_title(self.cbt) 
+#		self.fig.canvas.mpl_connect('button_press_event', self.onpress(self))
 
 	def loadanf(self,name, extl="Topo",extr="Fwd"):
 		''' Load Anfatec file format '''
 		conf=open( name+".txt" , "r" ).read().split("\n")
 		for index, item in enumerate(conf): 
-			if item == "FileDescBegin":
-				if conf[index+2][11:]==extl+extr:
+			if item[:13] == "FileDescBegin":
+				if conf[index+2][11:11+len(extl+extr)]==extl+extr:
 					zscale=float(conf[index+3][11:])
 				if conf[index+2][11:]=="DMX"+extr:
 					xscale=float(conf[index+3][11:])
 				if conf[index+2][11:]=="DMY"+extr:
 					yscale=float(conf[index+3][11:])
 			if item[:10] == "XScanRange":
-#				print item[14:]
 				xscanrange=float(item[14:])
 		Z = numpy.fromfile(name+extl+extr+".int", dtype=numpy.int32)
 		shape=numpy.sqrt(numpy.size(Z))
@@ -762,14 +776,24 @@ class fig2d:
 		self.add(data)
 		self.plot()
 
-	def plot(self):
+	def plot(self,xsbplt=1,ysbplt=1,possbplt=1):
 		''' plot the figure '''
 		self.fig = plt.figure(figsize=config.figsize2d)
-		self.ax = self.fig.add_subplot(111)
+		self.ax = self.fig.add_subplot(xsbplt,ysbplt,possbplt)
 		self.ax.hold()
+		self.tplot()
 #		self.ax = plt.axes()
+		return self
 
+	def tplot(self):
+		''' help function for plot '''
 		if self.lz!=None:
+			if self.lz[0]==self.lz[1]:
+				from scipy import ndimage
+				med_denoised = ndimage.median_filter(self.data, self.lz[0])
+				mean=med_denoised.mean()
+				std=numpy.std(med_denoised, dtype=numpy.float64)*1.5
+				self.lz=[mean-std, mean+std]
 			cmap=plt.cm.get_cmap(name=config.ncmap)
 			if config.ncolors>0:
 				self.im = plt.contourf(self.data,vmin=self.lz[0],vmax=self.lz[1],cmap=cmap, interpolation=config.interpolation2d,origin=config.origin2d, aspect=self.aspect, extent=self.extent)
@@ -795,7 +819,7 @@ class fig2d:
 
 	def label(self, x, y, text, dir=0):
 		''' add a label '''
-		self.ax.text(x,y, text, rotation=dir, size=self.fonts) #, color='red'
+		self.ax.text(x,y, text, rotation=dir) #, color='red'
 
 	def close(self):
 		plt.close()
