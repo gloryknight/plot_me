@@ -7,11 +7,16 @@ from numpy.random import randn
 
 # random 2D
 Z = np.clip(randn(250, 250), -1, 1)
-i=plot_me.fig2d("x (pixel)","y(pixel)" ,"Intensity (arb. units)", zlimit=(0,10), colorformat="%f", extent=[0, 100, 0, 100], fixcbsize=6, cbpad=0.08)
+#plot_me.mpl.rcParams['font.size']=8
+#if zlimit is equal for min and max, the limits will be set with the median denoise of the given strenth.
+i=plot_me.fig2d("x (pixel)","y($\mu$)" ,"Intensity (arb. units)", zlimit=(1,1), colorformat="%f", extent=[0, 100, 0, 100], fixcbsize=6, cbpad=0.08)
 #i.ncmap='hot'
 i.ncolors=10
 #i.colorformat='$10^{%d}$'
-i.add(Z).plot()
+i.add(Z).plot(4,2,4)
+i.fig.subplots_adjust(wspace=None, hspace=0.04)
+i.ax =i.fig.add_subplot(4,2,1)
+i.tplot()
 i.ax.text(0.5,1, "Voltage=1V", fontsize=20,bbox=dict(facecolor='white', alpha=0.5))
 i.add_line(np.array([[10,40], [90, 90], [80, 50]]), lw=1, color="red")
 
@@ -30,6 +35,7 @@ i.addgrid(np.array([10,20,30,40]),np.array([10,20,25,10]),np.array([15,11,12,10]
 
 plot_me.config.ncmap='Dark2'
 plot_me.config.ncolors=11 # this trick also works for 2D
+plot_me.mpl.rcParams['font.size']=20
 
 # Variour 1D plots with loading the data form txt and zip
 i=plot_me.fig("Time (seconds)", "Power (arb. units)") #, ylimit=[30,180])
