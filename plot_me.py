@@ -593,7 +593,7 @@ class fig:
 		self.pp=[]
 		for n, i in enumerate(p0):
 			a=plt.axes([0.25, n/25.+0.03, 0.65, 0.03])
-#			print i, (p0range[n]/2.)
+#			print (i, (p0range[n]/2.))
 			if i>0: 
 				self.pp.append(plt.Slider(a, 'p['+str(n)+']=', i-(p0range[n]/2.), i+(p0range[n]/2.), valinit=i))
 			else:
@@ -623,7 +623,7 @@ class fig2d:
 	def onpress(self,event):
 		if event.button!=0: return
 		x,y = event.xdata, event.ydata
-		print x, y
+		print (x, y)
 		self.nf=plt.figure()
 		plt.show()
 #		self.fig.canvas.draw()
