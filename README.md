@@ -23,6 +23,15 @@ It is a frontend for producing plots suitable for publication in scientific jour
 ## Installation from sources
 Just copy "plot_me.py" to you **site-packages** library directory.
 
+## Usage
+```python
+import plot_me
+i=plot_me.fig("Time (seconds)", "Power (arb. units)") #, ylimit=[30,180])
+i.load("plot_me_test.txt").plot(0, 1, "series1","", 1, log=0)
+i.save("Power.png")
+```
+See "plot_me_test.txt.py" for further examples.
+
 ## License
 BSD
 
