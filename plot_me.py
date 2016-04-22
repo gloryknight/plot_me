@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: iso-8859-15 -*-
 
-version="2.43"
+version="2.44"
 
 #Classes: fig->data->line, my_function
 
@@ -10,16 +10,19 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.mlab import griddata
 # configuration see the "site-packages\matplotlib\mpl-data\matplotlibrc" file
-mpl.rcParams['lines.linewidth']=2
-mpl.rcParams['axes.linewidth']=2
-mpl.rcParams['xtick.major.width']=2
-mpl.rcParams['xtick.minor.width']=2
-mpl.rcParams['ytick.major.width']=2
-mpl.rcParams['ytick.minor.width']=2
-mpl.rcParams['font.size']=20
-mpl.rcParams['lines.markeredgewidth']=2
-mpl.rcParams['lines.markersize']=5
-mpl.rcParams['svg.fonttype'] = 'none' #comment this line if you want the text as path in svg.
+try:
+	mpl.rcParams['lines.linewidth']=2
+	mpl.rcParams['axes.linewidth']=2
+	mpl.rcParams['xtick.major.width']=2
+	mpl.rcParams['xtick.minor.width']=2
+	mpl.rcParams['ytick.major.width']=2
+	mpl.rcParams['ytick.minor.width']=2
+	mpl.rcParams['font.size']=20
+	mpl.rcParams['lines.markeredgewidth']=2
+	mpl.rcParams['lines.markersize']=5
+	mpl.rcParams['svg.fonttype'] = 'none' #comment this line if you want the text as path in svg.
+except:
+	pass
 import numpy
 import pylab
 import sys
@@ -57,7 +60,7 @@ class config:
 	colorformat='%g' # format of the color scale
 	hcorient=0
 	ncmap='jet'# default colormap of the 2d plot and the line cycle. 'spectral' for more see http://www.scipy.org/Cookbook/Matplotlib/Show_colormaps
-	interpolation2d='nearest' # 2d interpolation
+	interpolation2d='nearest' # 2d interpolation : ‘none’, ‘nearest’, ‘bilinear’, ‘bicubic’, ‘spline16’, ‘spline36’, ‘hanning’, ‘hamming’, ‘hermite’, ‘kaiser’, ‘quadric’, ‘catrom’, ‘gaussian’, ‘bessel’, ‘mitchell’, ‘sinc’, ‘lanczos’
 	origin2d='lower'
 	whongdata="Wrong data in line: " # info message for wrong input data
 	bbox_inches='tight'
@@ -128,7 +131,7 @@ class zipf: # load zip (can be used directly or from figure by loadzip)
 
 	def writestr(self, str, fname=None):
 		''' write string to a file fname in the zip archive and close the file.'''
-		if fname==None:
+		if fname is None:
 			fname=self.fname
 		else:
 			self.fname=fname
@@ -203,7 +206,7 @@ class data:
 
 	def load_slow(self, filename, scan_nr=None): 
 		''' Loads data from the file into a new array, plots columns x_col versus y_col, with label scaled by scale '''
-		if (scan_nr==None) or (self.data==None):
+		if (scan_nr is None) or (self.data is None):
 			self.data=self.read_slow(filename, scan_nr)
 		else:
 			self.data=numpy.vstack((self.data, self.read_slow(filename, scan_nr)))
@@ -211,12 +214,12 @@ class data:
 
 	def loadzip(self, zipname, filename, scan_nr=None): 
 		''' Loads data from the file in a zip file returns new data object '''
-		if ((self.z==None) or (self.z.zipname!=zipname)):
+		if ((self.z is None) or (self.z.zipname!=zipname)):
 			del self.z
 			self.z=zipf(zipname)
 		dd=self.z.read(filename)
 		data=self.work_read(dd.split("\n"), scan_nr)
-		if (scan_nr==None) or (self.data==None):
+		if (scan_nr is None) or (self.data is None):
 			self.add(data)
 		else:
 			self.data=numpy.vstack((self.data, data))
@@ -245,7 +248,7 @@ class data:
 
 	def th2q(self, Energy=8047.812, th2=None): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to q space (powder diffraction) '''
-		if th2==None:
+		if th2 is None:
 			th2=self.x
 		pi4=4*numpy.pi
 		lambd=12398.4428/float(Energy) # wavelength in A
@@ -254,7 +257,7 @@ class data:
 
 	def q2th(self, Energy=8047.812, th2=None): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from q to angular space (powder diffraction) '''
-		if th2==None:
+		if th2 is None:
 			th2=self.x
 		pi4=4*numpy.pi
 		lambd=12398.4428/float(Energy) # wavelength in A
@@ -263,7 +266,7 @@ class data:
 		
 	def th2th(self, Energyold=8047.812, Energynew=8047.812, th2=None): # energy in Ev. th2 - axis of angles.
 		''' converts x coordinates from angules in one energy to another (powder diffraction) '''
-		if th2==None:
+		if th2 is None:
 			th2=self.x
 		self.th2q(Energy=Energyold, th2=th2)
 		self.q2th(Energy=Energynew, th2=th2)
@@ -271,7 +274,7 @@ class data:
 
 	def th2d(self, Energy=8047.812, th2=None): # energy in kEv. th2 - axis of angles.
 		''' converts x coordinates from angular to lattice spacings (powder diffraction) '''
-		if th2==None:
+		if th2 is None:
 			th2=self.x
 		self.th2q(Energy=Energy, th2=th2)
 		self.data[:, th2]=(2*numpy.pi)/self.data[:, th2] # spacing in A
@@ -290,7 +293,7 @@ class data:
 
 	def smoothme(self, every=10, maxdiv=1e15, window=numpy.hanning, row=None): 
 		''' smooth the data using a window on the data in this class (modyfies the data) '''
-		if row==None:
+		if row is None:
 			row=self.y
 		self.data[:,row]=self.smooth(self.data[:,row], every, maxdiv, window)
 		return self
@@ -339,17 +342,16 @@ class data:
 				line+=1
 		return numpy.array(f1, dtype='float')
 
-	def fit(self, range=[0,0], x_y_col=None, p0=None, maximumfittingcycles=20000, function=None, ls=True, maxerr=1e-10, debug=0, boundaries=[]): 
+	def fit(self, range=None, x_y_col=None, p0=None, maximumfittingcycles=20000, function=None, ls=True, maxerr=1e-10, debug=0, boundaries=[]): 
 		''' fit the data with function (returns the set of parameters) '''
-		if x_y_col==None:
+		if x_y_col is None:
 			x_y_col=[self.x,self.y]
-		if range==[0,0]:
+		if range is None:
+			range=[data[0,x_y_col[0]],data[data[:,x_y_col[0]].size-1,x_y_col[0]]]
 			data=self.data
 		else:
 			data=self.data[(self.data[:,x_y_col[0]]>range[0]) & (self.data[:,x_y_col[0]]<range[1]),:]
-		if range==[0,0]:
-			range=[data[0,x_y_col[0]],data[data[:,x_y_col[0]].size-1,x_y_col[0]]]
-		if p0==None:
+		if p0 is None:
 			self.p0_orig=[1.18643310e+02, 3.96555414e+02, 4.77081488e-06, 1.96415331e+01, 8.80491880e-02]
 			#print(numpy.argmax(data[:,y_col]), numpy.size(data))
 			n=numpy.argmax(data[:,x_y_col[1]])
@@ -360,7 +362,7 @@ class data:
 			self.p0_orig[4]=(range[1]-range[0])/3. # FWHM			
 		else:
 			self.p0_orig=p0
-		if function==None:
+		if function is None:
 			self.fitfunc=fit.Pseudo_Voigt()
 		else:
 			self.fitfunc=function
@@ -372,7 +374,7 @@ class data:
 
 	def plotfit(self, name="fit", x_y_col=None, **kwargs):
 		''' plot the result of fitting '''
-		if x_y_col==None:
+		if x_y_col is None:
 			x_y_col=[self.x,self.y]
 		data1=self.data.copy()
 		data1[:,x_y_col[1]]=self.fitfunc.peval(data1[:,x_y_col[0]],self.p0[0])
@@ -381,7 +383,7 @@ class data:
 
 	def getfiterr(self, x_y_col=None, range=[0,0]):
 		''' returns mean square error per measurements point '''
-		if x_y_col==None:
+		if x_y_col is None:
 			x_y_col=[self.x,self.y]
 		if range==[0,0]:
 			data=self.data
@@ -391,13 +393,13 @@ class data:
 
 	def plot(self, x_col=None, y_col=None, label=None, marker='', scale=1, data=None, log=0, lw=None, **kwargs):
 		''' plot the data '''
-		if x_col==None:
+		if x_col is None:
 			x_col=self.x
-		if y_col==None:
+		if y_col is None:
 			y_col=self.y
-		if data==None:
+		if data is None:
 			data=self.data
-		if lw==None:
+		if lw is None:
 			lw=self.lw
 		if scale==0:
 			scale=1/self.data[:,y_col].max()
@@ -413,7 +415,7 @@ class data:
 
 	def draw(self, x, y, marker='', lw=config.linewidth, l=None, scale=1, plotf=None, **kwargs):
 		''' draw the data (pass parameters to the plot directrly)'''
-		if plotf==None:
+		if plotf is None:
 			plotf=self.ax.plot
 		l = plotf(x, y, marker, lw=lw, label=l, markersize=config.MarkerSize, **kwargs)
 		return l
@@ -578,22 +580,22 @@ class fig:
 
 	def findpar(self, p0=None, function=None, p0range=None, x=None):
 		''' find a function behaviour and proper parameters (returns the set of parameters) '''
-		if p0==None:
+		if p0 is None:
 			p0=[1.18643310e+02, 3.96555414e+02, 4.77081488e-06, 1.96415331e+01, 8.80491880e-02]
-		if function==None:
+		if function is None:
 			self.fitfunc=fit.Pseudo_Voigt()
 		else:
 			self.fitfunc=function
-		if p0range==None:
+		if p0range is None:
 			p0range=p0
-		if x==None:
+		if x is None:
 			self.xlist=numpy.arange(0,100)
 		else:
 			self.xlist=x
 		self.pp=[]
 		for n, i in enumerate(p0):
 			a=plt.axes([0.25, n/25.+0.03, 0.65, 0.03])
-#			print (i, (p0range[n]/2.))
+#			print i, (p0range[n]/2.)
 			if i>0: 
 				self.pp.append(plt.Slider(a, 'p['+str(n)+']=', i-(p0range[n]/2.), i+(p0range[n]/2.), valinit=i))
 			else:
@@ -623,7 +625,7 @@ class fig2d:
 	def onpress(self,event):
 		if event.button!=0: return
 		x,y = event.xdata, event.ydata
-		print (x, y)
+		print x, y
 		self.nf=plt.figure()
 		plt.show()
 #		self.fig.canvas.draw()
@@ -633,6 +635,11 @@ class fig2d:
 		''' finalize the plot setup '''
 		self.ax.set_xlabel(self.xt)
 		self.ax.set_ylabel(self.yt)
+		''' set axis limits '''
+		if self.lx!=None:
+			self.ax.set_xlim(self.lx[0],self.lx[1])
+		if self.ly!=None:
+			self.ax.set_ylim(self.ly[0],self.ly[1])
 		if self.fixcbsize!=0:
 			from mpl_toolkits.axes_grid1 import make_axes_locatable
 			divider = make_axes_locatable(self.ax)
@@ -699,7 +706,7 @@ class fig2d:
 		''' Polynomial fit in 2D (help for poly2d)'''
 		shape=numpy.shape(self.data)
 
-		if x==None:
+		if x is None:
 			x, y = numpy.meshgrid(numpy.linspace(0, shape[0]-1, shape[0]), numpy.linspace(0, shape[1]-1, shape[1]))
 			x = x.flatten()
 			y = y.flatten()
@@ -713,7 +720,7 @@ class fig2d:
 
 	def polyval2d(self, m, x=None, y=None): # x,y - coordinates of datapoints, data=Z
 		''' Evaluate 2D polynomial (help for poly2d) '''
-		if x==None:
+		if x is None:
 			shape=numpy.shape(self.data)
 			x, y = numpy.meshgrid(numpy.linspace(0, shape[1]-1, shape[1]), numpy.linspace(0, shape[0]-1, shape[0]))
 		order = int(numpy.sqrt(len(m)))
@@ -731,15 +738,15 @@ class fig2d:
 	def poly1d(self, order=3, v=None, x=None):
 		''' Substract n-th order 1D polynomial from the data. '''
 		shape=numpy.shape(self.data)
-		if v==None:
-			if x==None:
+		if v is None:
+			if x is None:
 				x=numpy.linspace(0, shape[1]-1, shape[1])
 			for tl in range(int(shape[0])):
 				z = numpy.polyfit(x, self.data[tl,:], order)
 				p=numpy.poly1d(z)
 				self.data[tl,:] = self.data[tl,:] - p(x)
 		else:
-			if x==None:
+			if x is None:
 				x=numpy.linspace(0, shape[0]-1, shape[0])
 			for tl in range(int(shape[1])):
 				z = numpy.polyfit(x, self.data[:,tl], order)
